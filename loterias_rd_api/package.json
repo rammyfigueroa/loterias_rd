@@ -1,0 +1,15 @@
+{
+  "name": "loterias-rd-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker API para resultados de loterias dominicanas.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "latest"
+  }
+}

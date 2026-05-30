@@ -1,0 +1,7 @@
+name = "loterias-rd-api"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+SOURCE_URL = "https://loteriasdominicanas.com/"
+CACHE_SECONDS = "180"
