@@ -1,204 +1,252 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
-import '../../../app/theme/app_theme.dart';
-import '../domain/lottery_result.dart';
+import '../../../data/favorites_repository.dart';
+import '../../../domain/lottery_result.dart';
+import '../application/result_share_service.dart';
+import 'widgets/horizontal_result_balls.dart';
+import 'widgets/lottery_icon.dart';
+import 'widgets/three_prize_balls.dart';
 
-class ResultDetailPage extends StatelessWidget {
-  const ResultDetailPage({
-    required this.result,
-    required this.isFavorite,
-    required this.onFavoriteToggle,
-    super.key,
-  });
-
+class ResultDetailPage extends StatefulWidget {
   final LotteryResult result;
-  final bool isFavorite;
-  final VoidCallback onFavoriteToggle;
+
+  const ResultDetailPage({super.key, required this.result});
+
+  @override
+  State<ResultDetailPage> createState() => _ResultDetailPageState();
+}
+
+class _ResultDetailPageState extends State<ResultDetailPage> {
+  final FavoritesRepository _favoritesRepository = FavoritesRepository();
+  bool _isFavorite = false;
+
+  String get _id =>
+      '${widget.result.lotteryName}_${widget.result.drawName}_${widget.result.drawDate}';
+
+  bool get _isThreeNumberDraw => widget.result.numbers.length <= 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorite();
+  }
+
+  Future<void> _loadFavorite() async {
+    final isFav = await _favoritesRepository.isFavorite(_id);
+    if (!mounted) return;
+    setState(() {
+      _isFavorite = isFav;
+    });
+  }
+
+  Future<void> _toggleFavorite() async {
+    await _favoritesRepository.toggleFavorite(_id);
+    final isFav = await _favoritesRepository.isFavorite(_id);
+    if (!mounted) return;
+    setState(() {
+      _isFavorite = isFav;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF003893),
       appBar: AppBar(
-        title: const Text('Detalle del sorteo'),
+        backgroundColor: const Color(0xFF004FCF),
+        elevation: 0,
+        centerTitle: true,
+        title: const Text('Detalle'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
           IconButton(
-            tooltip: isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos',
-            onPressed: onFavoriteToggle,
-            icon: Icon(isFavorite ? Icons.star_rounded : Icons.star_border_rounded),
-          ),
-          IconButton(
-            tooltip: 'Compartir resultado',
-            onPressed: () => Share.share(result.shareText),
-            icon: const Icon(Icons.ios_share_rounded),
+            tooltip: 'Favorito',
+            onPressed: _toggleFavorite,
+            icon: Icon(
+              _isFavorite ? Icons.star : Icons.star_border,
+              color: Colors.white,
+            ),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.blue,
-              borderRadius: BorderRadius.circular(22),
-            ),
-            padding: const EdgeInsets.all(20),
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF004FCF), Color(0xFF0052C4), Colors.white],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            stops: [0, 0.38, 1],
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  result.lotteryName,
-                  style: const TextStyle(
-                    color: Color(0xFFDCE8FF),
-                    fontWeight: FontWeight.w700,
-                  ),
+                _DetailHeader(result: widget.result),
+                const SizedBox(height: 18),
+                _NumbersCard(
+                  numbers: widget.result.numbers,
+                  isThreeNumberDraw: _isThreeNumberDraw,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 18),
                 Text(
-                  result.drawName,
-                  style: const TextStyle(
-                    color: AppTheme.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                  ),
+                  'Estos resultados son informativos. Verifique siempre en la fuente oficial.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
                 ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_month_rounded, color: AppTheme.white, size: 18),
-                    const SizedBox(width: 6),
-                    Text(
-                      result.drawDate,
-                      style: const TextStyle(color: AppTheme.white),
+                const SizedBox(height: 18),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF003893),
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                    if (result.isVerified) ...[
-                      const SizedBox(width: 14),
-                      const Icon(Icons.verified_rounded, color: AppTheme.white, size: 18),
-                      const SizedBox(width: 6),
-                      const Text('Verificado', style: TextStyle(color: AppTheme.white)),
-                    ],
-                  ],
+                  ),
+                  onPressed: () => shareLotteryResult(context, widget.result),
+                  icon: const Icon(Icons.share),
+                  label: const Text(
+                    'Compartir resultado',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 22),
-          const Text(
-            'Numeros ganadores',
-            style: TextStyle(
-              color: AppTheme.ink,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 14,
-            runSpacing: 14,
-            children: result.numbers.map((number) {
-              return _LargeNumberBall(number: number);
-            }).toList(),
-          ),
-          if (result.prize != null) ...[
-            const SizedBox(height: 22),
-            _InfoTile(
-              icon: Icons.payments_rounded,
-              title: 'Premio acumulado',
-              value: result.prize!,
-            ),
-          ],
-          const SizedBox(height: 22),
-          const _InfoTile(
-            icon: Icons.info_rounded,
-            title: 'Aviso importante',
-            value: 'Estos resultados son informativos. Verifica siempre con la loteria oficial antes de reclamar premios.',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LargeNumberBall extends StatelessWidget {
-  const _LargeNumberBall({required this.number});
-
-  final String number;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 72,
-      height: 72,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.red, width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.red.withOpacity(0.12),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Text(
-        number,
-        style: const TextStyle(
-          color: AppTheme.red,
-          fontSize: 24,
-          fontWeight: FontWeight.w900,
         ),
       ),
     );
   }
 }
 
-class _InfoTile extends StatelessWidget {
-  const _InfoTile({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
+class _DetailHeader extends StatelessWidget {
+  final LotteryResult result;
 
-  final IconData icon;
-  final String title;
-  final String value;
+  const _DetailHeader({required this.result});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        color: Colors.white.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white24),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, color: AppTheme.blue),
-          const SizedBox(width: 12),
+          Container(
+            width: 58,
+            height: 58,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                  color: Colors.black26,
+                ),
+              ],
+            ),
+            child: Center(
+              child: LotteryIcon(
+                lotteryName: result.lotteryName,
+                size: 38,
+                color: const Color(0xFF003893),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppTheme.ink,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  result.drawName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
                 Text(
-                  value,
-                  style: const TextStyle(color: AppTheme.muted, height: 1.35),
+                  result.drawDate,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w800,
+                      ),
                 ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NumbersCard extends StatelessWidget {
+  final List<String> numbers;
+  final bool isThreeNumberDraw;
+
+  const _NumbersCard({
+    required this.numbers,
+    required this.isThreeNumberDraw,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(18, 22, 18, numbers.length > 5 ? 30 : 26),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: const [
+          BoxShadow(
+            blurRadius: 14,
+            offset: Offset(0, 8),
+            color: Colors.black26,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isThreeNumberDraw ? 'Premios' : 'Números del sorteo',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: const Color(0xFF0F172A),
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 18),
+          isThreeNumberDraw
+              ? ThreePrizeBalls(
+                  numbers: numbers,
+                  maxSize: 96,
+                  labelColor: Colors.grey.shade600,
+                )
+              : HorizontalResultBalls(numbers: numbers, size: 64),
         ],
       ),
     );

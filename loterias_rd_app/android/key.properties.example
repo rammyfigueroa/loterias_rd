@@ -1,0 +1,6 @@
+# Copy this file to android/key.properties and fill it with the real
+# Google Play upload key values. Do not commit android/key.properties.
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=upload
+storeFile=app/upload-keystore.jks

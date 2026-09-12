@@ -1,51 +1,29 @@
 import 'package:flutter/material.dart';
 
+/// Central place to configure the application's theme.
 class AppTheme {
-  static const blue = Color(0xFF0B3D91);
-  static const red = Color(0xFFD71920);
-  static const white = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF13213C);
-  static const muted = Color(0xFF65738A);
-  static const surface = Color(0xFFF5F7FB);
-
-  static ThemeData light() {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: blue,
-      primary: blue,
-      secondary: red,
-      surface: surface,
-      brightness: Brightness.light,
-    );
-
+  /// Returns a light theme based on the Dominican flag colours.
+  static ThemeData get lightTheme {
     return ThemeData(
-      useMaterial3: true,
-      colorScheme: scheme,
-      scaffoldBackgroundColor: surface,
-      fontFamily: 'Roboto',
+      primaryColor: const Color(0xFF003893),
+      colorScheme: ColorScheme.fromSwatch().copyWith(
+        primary: const Color(0xFF003893),
+        secondary: const Color(0xFFD90F2C),
+      ),
+      scaffoldBackgroundColor: Colors.white,
       appBarTheme: const AppBarTheme(
-        backgroundColor: blue,
-        foregroundColor: white,
-        centerTitle: false,
+        backgroundColor: Color(0xFF003893),
+        foregroundColor: Colors.white,
         elevation: 0,
       ),
       cardTheme: CardThemeData(
-        color: white,
-        elevation: 0,
-        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(12),
         ),
+        elevation: 2,
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-      ),
+      useMaterial3: true,
     );
   }
 }
