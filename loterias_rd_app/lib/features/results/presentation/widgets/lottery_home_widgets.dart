@@ -114,48 +114,70 @@ class LotteryCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
-            child: Column(
-              children: [
-                Align(
-                  alignment: Alignment.topRight,
-                  child: Icon(
-                    isFavorite ? Icons.star : Icons.arrow_outward,
-                    size: 17,
-                    color: isFavorite
-                        ? const Color(0xFFF4B400)
-                        : const Color(0xFF94A3B8),
-                  ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 9,
+                right: 9,
+                child: Icon(
+                  isFavorite ? Icons.star : Icons.arrow_outward,
+                  size: 18,
+                  color: isFavorite
+                      ? const Color(0xFFF4B400)
+                      : const Color(0xFF9AA9BC),
                 ),
-                Expanded(
-                  child: Center(
-                    child: LotteryIcon(
-                      lotteryName: group.name,
-                      size: 52,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 12, 8, 9),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final logoSize =
+                              (constraints.maxWidth * .70).clamp(62.0, 82.0);
+                          return Center(
+                            child: ClipRect(
+                              child: Transform.scale(
+                                scale: 1.22,
+                                child: LotteryIcon(
+                                  lotteryName: group.name,
+                                  size: logoSize,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 2),
+                    Text(
+                      group.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: const Color(0xFF050B16),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            height: 1.05,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${group.results.length} ${group.results.length == 1 ? 'sorteo' : 'sorteos'}',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFF718096),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            height: 1,
+                          ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  group.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        height: 1.15,
-                      ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${group.results.length} sorteos',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF64748B),
-                      ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

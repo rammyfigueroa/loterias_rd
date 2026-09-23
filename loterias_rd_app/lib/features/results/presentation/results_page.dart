@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../data/favorites_repository.dart';
 import '../../../data/lottery_results_remote_source.dart';
@@ -86,24 +87,29 @@ class _ResultsPageState extends State<ResultsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFF0648A8),
-      drawer: _HomeDrawer(onSearch: () {
-        Navigator.of(context).pop();
-        _searchFocusNode.requestFocus();
-      }),
-      body: SafeArea(
-        bottom: false,
-        child: FutureBuilder<List<LotteryResult>>(
-          future: _futureResults,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const _LoadingHome();
-            }
-            if (snapshot.hasError) return _ErrorHome(onRetry: _refresh);
-            return _buildLoadedHome(snapshot.data ?? const <LotteryResult>[]);
-          },
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: const Color(0xFF0648A8),
+        drawer: _HomeDrawer(onSearch: () {
+          Navigator.of(context).pop();
+          _searchFocusNode.requestFocus();
+        }),
+        body: SafeArea(
+          bottom: false,
+          child: FutureBuilder<List<LotteryResult>>(
+            future: _futureResults,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const _LoadingHome();
+              }
+              if (snapshot.hasError) return _ErrorHome(onRetry: _refresh);
+              return _buildLoadedHome(snapshot.data ?? const <LotteryResult>[]);
+            },
+          ),
         ),
       ),
     );
@@ -169,24 +175,34 @@ class _ResultsPageState extends State<ResultsPage> {
             else
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 165,
-                    mainAxisExtent: 176,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final group = groups[index];
-                      return LotteryCard(
-                        group: group,
-                        isFavorite: _favoriteLotteryIds.contains(group.id),
-                        onTap: () => _openLottery(group),
-                      );
-                    },
-                    childCount: groups.length,
-                  ),
+                sliver: SliverLayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.crossAxisExtent >= 340 ? 3 : 2;
+                    const spacing = 10.0;
+                    final cardWidth = (constraints.crossAxisExtent -
+                            spacing * (columns - 1)) /
+                        columns;
+                    final cardHeight = (cardWidth * 1.36).clamp(148.0, 164.0);
+                    return SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        mainAxisExtent: cardHeight,
+                        crossAxisSpacing: spacing,
+                        mainAxisSpacing: 10,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final group = groups[index];
+                          return LotteryCard(
+                            group: group,
+                            isFavorite: _favoriteLotteryIds.contains(group.id),
+                            onTap: () => _openLottery(group),
+                          );
+                        },
+                        childCount: groups.length,
+                      ),
+                    );
+                  },
                 ),
               ),
             SliverPadding(
@@ -257,20 +273,22 @@ class _HomeHeader extends StatelessWidget {
                   onPressed: onMenu,
                   icon: const Icon(Icons.menu, color: Colors.white),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Sorteos Dominicanos',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                        ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Image.asset(
+                      'assets/branding/logo_horizontal.png',
+                      width: 225,
+                      height: 48,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ],
             ),
             const Padding(
-              padding: EdgeInsets.only(left: 52, right: 12),
+              padding: EdgeInsets.only(left: 56, right: 12),
               child: Text(
                 'Resultados de las principales loterías de la República Dominicana',
                 style: TextStyle(color: Color(0xFFDCEAFE), height: 1.35),
