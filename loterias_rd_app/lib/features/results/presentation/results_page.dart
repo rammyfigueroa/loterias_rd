@@ -371,57 +371,62 @@ class _HomeDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.viewPaddingOf(context).top;
     return Drawer(
-      child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Color(0xFF0648A8)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Icon(Icons.casino_outlined, color: Colors.white, size: 38),
-                  SizedBox(height: 12),
-                  Text(
-                    'Sorteos Dominicanos',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          Container(
+            height: topInset + 174,
+            padding: EdgeInsets.fromLTRB(22, topInset + 20, 22, 22),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF063E96), Color(0xFF0875DA)],
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.search),
-              title: const Text('Buscar resultados'),
-              onTap: onSearch,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Image.asset(
+                'assets/branding/logo_horizontal.png',
+                width: double.infinity,
+                height: 96,
+                fit: BoxFit.contain,
+                alignment: Alignment.centerLeft,
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.insights_outlined),
-              title: const Text('Estadísticas'),
-              onTap: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const StatsPage()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('Acerca de'),
-              onTap: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const InfoPage()),
-                );
-              },
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+            leading: const Icon(Icons.search),
+            title: const Text('Buscar resultados'),
+            onTap: onSearch,
+          ),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+            leading: const Icon(Icons.insights_outlined),
+            title: const Text('Estadísticas'),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const StatsPage()),
+              );
+            },
+          ),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+            leading: const Icon(Icons.info_outline),
+            title: const Text('Acerca de'),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const InfoPage()),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
