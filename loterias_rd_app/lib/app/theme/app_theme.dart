@@ -19,11 +19,11 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(20),
         ),
         color: Colors.white,
-        shadowColor: const Color(0x1A0F172A),
-        elevation: 2,
+        shadowColor: Colors.transparent,
+        elevation: 0,
         margin: EdgeInsets.zero,
       ),
       inputDecorationTheme: const InputDecorationTheme(
@@ -32,9 +32,9 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: Colors.white,
-        selectedColor: const Color(0xFFDCEAFE),
+        selectedColor: const Color(0xFF0B6FF4),
         side: const BorderSide(color: Color(0xFFDCE4EF)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         labelStyle: const TextStyle(
           color: Color(0xFF17345C),
           fontWeight: FontWeight.w700,
@@ -44,7 +44,8 @@ class AppTheme {
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF0648A8),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
       useMaterial3: true,

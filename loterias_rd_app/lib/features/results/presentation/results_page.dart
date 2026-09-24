@@ -147,7 +147,7 @@ class _ResultsPageState extends State<ResultsPage> {
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 2),
               sliver: SliverToBoxAdapter(
                 child: LotteryFilterChips(
                   selected: _selectedFilter,
@@ -157,7 +157,7 @@ class _ResultsPageState extends State<ResultsPage> {
               ),
             ),
             const SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 22, 16, 12),
+              padding: EdgeInsets.fromLTRB(16, 24, 16, 14),
               sliver:
                   SliverToBoxAdapter(child: _SectionTitle(title: 'Loterías')),
             ),
@@ -178,17 +178,18 @@ class _ResultsPageState extends State<ResultsPage> {
                 sliver: SliverLayoutBuilder(
                   builder: (context, constraints) {
                     final columns = constraints.crossAxisExtent >= 340 ? 3 : 2;
-                    const spacing = 10.0;
+                    final spacing =
+                        constraints.crossAxisExtent >= 380 ? 12.0 : 10.0;
                     final cardWidth = (constraints.crossAxisExtent -
                             spacing * (columns - 1)) /
                         columns;
-                    final cardHeight = (cardWidth * 1.36).clamp(148.0, 164.0);
+                    final cardHeight = (cardWidth * 1.52).clamp(156.0, 174.0);
                     return SliverGrid(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: columns,
                         mainAxisExtent: cardHeight,
                         crossAxisSpacing: spacing,
-                        mainAxisSpacing: 10,
+                        mainAxisSpacing: 14,
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
@@ -206,7 +207,7 @@ class _ResultsPageState extends State<ResultsPage> {
                 ),
               ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 28, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 30, 16, 12),
               sliver: SliverToBoxAdapter(
                 child: _SectionTitle(
                   title: 'Resultados recientes',
@@ -259,10 +260,16 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: const Color(0xFF0648A8),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF063E96), Color(0xFF0875DA)],
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 22),
+        padding: const EdgeInsets.fromLTRB(14, 8, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -271,7 +278,8 @@ class _HomeHeader extends StatelessWidget {
                 IconButton(
                   tooltip: 'Abrir menú',
                   onPressed: onMenu,
-                  icon: const Icon(Icons.menu, color: Colors.white),
+                  icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                  iconSize: 28,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -279,8 +287,8 @@ class _HomeHeader extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: Image.asset(
                       'assets/branding/logo_horizontal.png',
-                      width: 225,
-                      height: 48,
+                      width: 232,
+                      height: 50,
                       fit: BoxFit.contain,
                     ),
                   ),
@@ -288,17 +296,29 @@ class _HomeHeader extends StatelessWidget {
               ],
             ),
             const Padding(
-              padding: EdgeInsets.only(left: 56, right: 12),
+              padding: EdgeInsets.only(left: 58, right: 12),
               child: Text(
                 'Resultados de las principales loterías de la República Dominicana',
                 style: TextStyle(color: Color(0xFFDCEAFE), height: 1.35),
               ),
             ),
-            const SizedBox(height: 20),
-            LotterySearchBar(
-              controller: searchController,
-              focusNode: searchFocusNode,
-              onChanged: onSearchChanged,
+            const SizedBox(height: 18),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x26001642),
+                    blurRadius: 16,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: LotterySearchBar(
+                controller: searchController,
+                focusNode: searchFocusNode,
+                onChanged: onSearchChanged,
+              ),
             ),
           ],
         ),
@@ -322,12 +342,23 @@ class _SectionTitle extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: const Color(0xFF081426),
+                  fontSize: 25,
                   fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
                 ),
           ),
         ),
         if (actionLabel != null)
-          TextButton(onPressed: onAction, child: Text(actionLabel!)),
+          TextButton.icon(
+            onPressed: onAction,
+            iconAlignment: IconAlignment.end,
+            icon: const Icon(Icons.chevron_right_rounded, size: 20),
+            label: Text(
+              actionLabel!,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
       ],
     );
   }

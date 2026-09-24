@@ -39,14 +39,18 @@ class LotterySearchBar extends StatelessWidget {
               ),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(vertical: 17),
+        contentPadding: const EdgeInsets.symmetric(vertical: 18),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0x1AFFFFFF)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFF89BFFF), width: 1.5),
         ),
       ),
     );
@@ -70,29 +74,164 @@ class LotteryFilterChips extends StatelessWidget {
       ('Favoritas', Icons.star_outline),
       ('Recientes', Icons.schedule),
     ];
-    return SizedBox(
-      height: 42,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final filter = filters[index];
-          final isSelected = selected == filter.$1;
-          return FilterChip(
-            avatar: Icon(filter.$2, size: 17),
-            label: Text(filter.$1),
-            selected: isSelected,
-            onSelected: (_) => onSelected(filter.$1),
-            showCheckmark: false,
-          );
-        },
-      ),
+    return Row(
+      children: List.generate(filters.length, (index) {
+        final filter = filters[index];
+        final isSelected = selected == filter.$1;
+        return Expanded(
+          child: Padding(
+            padding:
+                EdgeInsets.only(right: index == filters.length - 1 ? 0 : 8),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF0B6FF4) : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF0B6FF4)
+                      : const Color(0xFFE7EDF5),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isSelected
+                        ? const Color(0x260B6FF4)
+                        : const Color(0x0D17345C),
+                    blurRadius: isSelected ? 12 : 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => onSelected(filter.$1),
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                    height: 44,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          filter.$2,
+                          size: 17,
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF4B5E78),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            filter.$1,
+                            maxLines: 1,
+                            overflow: TextOverflow.fade,
+                            softWrap: false,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF1C2C43),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }
 
-class LotteryCard extends StatelessWidget {
+class LotteryVisualStyle {
+  final Color accentColor;
+  final Color backgroundAccent;
+
+  const LotteryVisualStyle({
+    required this.accentColor,
+    required this.backgroundAccent,
+  });
+
+  static LotteryVisualStyle forName(String lotteryName) {
+    final name = normalizeLotteryText(lotteryName);
+    if (name.contains('anguila')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFFE6A900),
+        backgroundAccent: Color(0xFFFFF6D7),
+      );
+    }
+    if (name.contains('haiti') || name.contains('bolet')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFF0B56B5),
+        backgroundAccent: Color(0xFFE8F2FF),
+      );
+    }
+    if (name.contains('americana') || name.contains('florida')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFFE98916),
+        backgroundAccent: Color(0xFFFFF0DD),
+      );
+    }
+    if (name.contains('king')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFFD6A500),
+        backgroundAccent: Color(0xFFFFF6CF),
+      );
+    }
+    if (name.contains('primera')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFFE9273B),
+        backgroundAccent: Color(0xFFFFE9EC),
+      );
+    }
+    if (name.contains('suerte')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFFCE2943),
+        backgroundAccent: Color(0xFFF4ECF5),
+      );
+    }
+    if (name.contains('leidsa')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFF1648A0),
+        backgroundAccent: Color(0xFFEAF1FF),
+      );
+    }
+    if (name.contains('lotedom')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFF384CBD),
+        backgroundAccent: Color(0xFFEEEFFF),
+      );
+    }
+    if (name.contains('loteka')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFF0095D7),
+        backgroundAccent: Color(0xFFE3F6FF),
+      );
+    }
+    if (name.contains('nacional')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFF218A47),
+        backgroundAccent: Color(0xFFE7F6EC),
+      );
+    }
+    if (name.contains('real')) {
+      return const LotteryVisualStyle(
+        accentColor: Color(0xFF188C72),
+        backgroundAccent: Color(0xFFE4F5F1),
+      );
+    }
+    return const LotteryVisualStyle(
+      accentColor: Color(0xFF0B6FF4),
+      backgroundAccent: Color(0xFFEAF3FF),
+    );
+  }
+}
+
+class LotteryCard extends StatefulWidget {
   final LotteryGroup group;
   final bool isFavorite;
   final VoidCallback onTap;
@@ -105,79 +244,159 @@ class LotteryCard extends StatelessWidget {
   });
 
   @override
+  State<LotteryCard> createState() => _LotteryCardState();
+}
+
+class _LotteryCardState extends State<LotteryCard> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final style = LotteryVisualStyle.forName(widget.group.name);
     return Semantics(
       button: true,
-      label: 'Abrir resultados de ${group.name}',
-      child: Card(
-        margin: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Stack(
-            children: [
-              Positioned(
-                top: 9,
-                right: 9,
-                child: Icon(
-                  isFavorite ? Icons.star : Icons.arrow_outward,
-                  size: 18,
-                  color: isFavorite
-                      ? const Color(0xFFF4B400)
-                      : const Color(0xFF9AA9BC),
-                ),
+      label: 'Abrir resultados de ${widget.group.name}',
+      child: AnimatedScale(
+        scale: _pressed ? .975 : 1,
+        duration: const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x141B3555),
+                blurRadius: 18,
+                offset: Offset(0, 6),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 12, 8, 9),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: widget.onTap,
+              onHighlightChanged: _setPressed,
+              splashColor: style.accentColor.withValues(alpha: .08),
+              highlightColor: style.accentColor.withValues(alpha: .04),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
                 child: Column(
                   children: [
                     Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final logoSize =
-                              (constraints.maxWidth * .70).clamp(62.0, 82.0);
-                          return Center(
-                            child: ClipRect(
-                              child: Transform.scale(
-                                scale: 1.22,
-                                child: LotteryIcon(
-                                  lotteryName: group.name,
-                                  size: logoSize,
-                                ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(17),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  style.backgroundAccent,
+                                  Color.lerp(
+                                    style.backgroundAccent,
+                                    Colors.white,
+                                    .56,
+                                  )!,
+                                ],
                               ),
                             ),
-                          );
-                        },
+                          ),
+                          Positioned(
+                            left: -12,
+                            bottom: -25,
+                            child: Container(
+                              width: 72,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: style.accentColor.withValues(alpha: .07),
+                              ),
+                            ),
+                          ),
+                          Center(
+                            child: FractionallySizedBox(
+                              widthFactor: .84,
+                              heightFactor: .78,
+                              child: LotteryIcon(
+                                lotteryName: widget.group.name,
+                                size: 92,
+                              ),
+                            ),
+                          ),
+                          if (widget.isFavorite)
+                            const Positioned(
+                              left: 8,
+                              top: 8,
+                              child: Icon(
+                                Icons.star_rounded,
+                                size: 17,
+                                color: Color(0xFFF2B400),
+                              ),
+                            ),
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: Container(
+                              width: 31,
+                              height: 31,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withValues(alpha: .88),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x101B3555),
+                                    blurRadius: 7,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.arrow_outward_rounded,
+                                size: 17,
+                                color: style.accentColor,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 7),
                     Text(
-                      group.name,
+                      widget.group.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: const Color(0xFF050B16),
-                            fontSize: 16,
+                            color: const Color(0xFF081426),
+                            fontSize: 15,
                             fontWeight: FontWeight.w900,
                             height: 1.05,
                           ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${group.results.length} ${group.results.length == 1 ? 'sorteo' : 'sorteos'}',
+                      '${widget.group.results.length} ${widget.group.results.length == 1 ? 'sorteo' : 'sorteos'}',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: const Color(0xFF718096),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
                             height: 1,
                           ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -264,65 +483,93 @@ class RecentResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                padding: const EdgeInsets.all(7),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF1F5F9),
-                  shape: BoxShape.circle,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x121B3555),
+            blurRadius: 18,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  padding: const EdgeInsets.all(7),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: LotteryIcon(lotteryName: result.lotteryName, size: 38),
                 ),
-                child: LotteryIcon(lotteryName: result.lotteryName, size: 38),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      result.lotteryName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      result.drawName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF475569),
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      [result.drawDate, if (_time != null) _time!].join(' · '),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF64748B),
-                          ),
-                    ),
-                    const SizedBox(height: 11),
-                    ResultNumberBalls(result: result, size: 39),
-                  ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        result.lotteryName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        result.drawName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: const Color(0xFF475569),
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        [result.drawDate, if (_time != null) _time!]
+                            .join(' · '),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: const Color(0xFF64748B),
+                            ),
+                      ),
+                      const SizedBox(height: 11),
+                      ResultNumberBalls(result: result, size: 39),
+                    ],
+                  ),
                 ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(top: 15),
-                child: Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF0F5FB),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Color(0xFF315A8C),
+                      size: 21,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
