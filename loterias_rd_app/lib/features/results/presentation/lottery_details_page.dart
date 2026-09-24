@@ -92,6 +92,12 @@ class _LotteryDetailsPageState extends State<LotteryDetailsPage> {
             ),
           ],
           bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Color(0xB3FFFFFF),
+            labelStyle: TextStyle(fontWeight: FontWeight.w700),
+            unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w600),
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
             tabs: [
               Tab(text: 'Recientes'),
               Tab(text: 'Historial'),

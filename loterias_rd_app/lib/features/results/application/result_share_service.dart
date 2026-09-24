@@ -9,7 +9,8 @@ Future<void> shareLotteryResult(
   LotteryResult result,
 ) async {
   try {
-    final box = context.findRenderObject() as RenderBox?;
+    final renderObject = context.findRenderObject();
+    final box = renderObject is RenderBox ? renderObject : null;
     await SharePlus.instance.share(
       ShareParams(
         text: buildResultShareText(result),

@@ -12,11 +12,17 @@ String buildResultShareText(LotteryResult result) {
       .map((number) => number.trim())
       .where((number) => number.isNotEmpty)
       .join(' - ');
+  final prizes = result.prizes
+      .where((prize) =>
+          prize.label.trim().isNotEmpty && prize.number.trim().isNotEmpty)
+      .map((prize) => '${prize.label.trim()}: ${prize.number.trim()}')
+      .join(' · ');
 
   final lines = <String>[
     result.lotteryName.trim(),
     if (result.drawName.trim().isNotEmpty) result.drawName.trim(),
     if (numbers.isNotEmpty) 'Resultado: $numbers',
+    if (prizes.isNotEmpty) 'Premios: $prizes',
     if (result.drawDate.trim().isNotEmpty) result.drawDate.trim(),
     '',
     'Compartido desde Sorteos Dominicanos',
