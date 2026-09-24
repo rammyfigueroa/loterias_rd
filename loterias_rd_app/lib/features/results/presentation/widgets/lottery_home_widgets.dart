@@ -407,19 +407,25 @@ class _LotteryCardState extends State<LotteryCard> {
 class ResultNumberBalls extends StatelessWidget {
   final LotteryResult result;
   final double size;
+  final double spacing;
+  final WrapAlignment alignment;
 
   const ResultNumberBalls({
     super.key,
     required this.result,
     this.size = 42,
+    this.spacing = 7,
+    this.alignment = WrapAlignment.start,
   });
 
   @override
   Widget build(BuildContext context) {
     final numbers = resultNumbers(result);
     return Wrap(
-      spacing: 7,
-      runSpacing: 7,
+      alignment: alignment,
+      runAlignment: alignment,
+      spacing: spacing,
+      runSpacing: spacing,
       children: List.generate(numbers.length, (index) {
         final colors = <Color>[
           const Color(0xFF0648A8),
@@ -454,7 +460,7 @@ class ResultNumberBalls extends StatelessWidget {
                 style: TextStyle(
                   color: foreground,
                   fontWeight: FontWeight.w900,
-                  fontSize: size * .39,
+                  fontSize: size * .44,
                 ),
               ),
             ),

@@ -184,10 +184,29 @@ class _LotteryResultsList extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                ResultNumberBalls(result: result, size: 54),
+                const SizedBox(height: 18),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final numberCount = resultNumbers(result).length;
+                    final ballsInFirstRow = numberCount.clamp(1, 4);
+                    const spacing = 10.0;
+                    final availableBallWidth = (constraints.maxWidth -
+                            spacing * (ballsInFirstRow - 1)) /
+                        ballsInFirstRow;
+                    final ballSize = availableBallWidth.clamp(58.0, 64.0);
+                    return SizedBox(
+                      width: double.infinity,
+                      child: ResultNumberBalls(
+                        result: result,
+                        size: ballSize,
+                        spacing: spacing,
+                        alignment: WrapAlignment.center,
+                      ),
+                    );
+                  },
+                ),
                 if (result.prizes.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Wrap(
                     spacing: 12,
                     runSpacing: 4,
