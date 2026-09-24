@@ -146,101 +146,121 @@ class _LotteryResultsList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: results.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final result = results[index];
-        return Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            result.drawName,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            result.drawDate,
-                            style: const TextStyle(color: Color(0xFF64748B)),
-                          ),
-                        ],
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: const Color(0xFFE3EAF3),
+              width: 1,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x141B3555),
+                blurRadius: 16,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              result.drawName,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              result.drawDate,
+                              style: const TextStyle(color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: 'Abrir detalle',
-                      onPressed: () => onOpen(result),
-                      icon: const Icon(Icons.chevron_right),
+                      IconButton(
+                        tooltip: 'Abrir detalle',
+                        onPressed: () => onOpen(result),
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final numberCount = resultNumbers(result).length;
+                      final ballsInFirstRow = numberCount.clamp(1, 4);
+                      const spacing = 10.0;
+                      final availableBallWidth = (constraints.maxWidth -
+                              spacing * (ballsInFirstRow - 1)) /
+                          ballsInFirstRow;
+                      final ballSize = availableBallWidth.clamp(58.0, 64.0);
+                      return SizedBox(
+                        width: double.infinity,
+                        child: ResultNumberBalls(
+                          result: result,
+                          size: ballSize,
+                          spacing: spacing,
+                          alignment: WrapAlignment.center,
+                        ),
+                      );
+                    },
+                  ),
+                  if (result.prizes.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 6,
+                      children: result.prizes
+                          .map(
+                            (prize) => Text(
+                              '${prize.label}: ${prize.number}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          )
+                          .toList(),
                     ),
                   ],
-                ),
-                const SizedBox(height: 18),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final numberCount = resultNumbers(result).length;
-                    final ballsInFirstRow = numberCount.clamp(1, 4);
-                    const spacing = 10.0;
-                    final availableBallWidth = (constraints.maxWidth -
-                            spacing * (ballsInFirstRow - 1)) /
-                        ballsInFirstRow;
-                    final ballSize = availableBallWidth.clamp(58.0, 64.0);
-                    return SizedBox(
-                      width: double.infinity,
-                      child: ResultNumberBalls(
-                        result: result,
-                        size: ballSize,
-                        spacing: spacing,
-                        alignment: WrapAlignment.center,
-                      ),
-                    );
-                  },
-                ),
-                if (result.prizes.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 4,
-                    children: result.prizes
-                        .map(
-                          (prize) => Text(
-                            '${prize.label}: ${prize.number}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        )
-                        .toList(),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => onOpen(result),
+                          icon: const Icon(Icons.visibility_outlined),
+                          label: const Text('Detalle'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => shareLotteryResult(context, result),
+                          icon: const Icon(Icons.share_outlined),
+                          label: const Text('Compartir'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => onOpen(result),
-                        icon: const Icon(Icons.visibility_outlined),
-                        label: const Text('Detalle'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () => shareLotteryResult(context, result),
-                        icon: const Icon(Icons.share_outlined),
-                        label: const Text('Compartir'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         );
