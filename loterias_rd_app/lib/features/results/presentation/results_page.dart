@@ -307,7 +307,6 @@ class _HomeHeader extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 10),
             Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: 340),
@@ -407,15 +406,27 @@ class _HomeDrawer extends StatelessWidget {
                 colors: [Color(0xFF063E96), Color(0xFF0875DA)],
               ),
             ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Image.asset(
-                'assets/branding/logo_horizontal.png',
-                width: double.infinity,
-                height: 96,
-                fit: BoxFit.contain,
-                alignment: Alignment.centerLeft,
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/branding/logo_horizontal.png',
+                  width: double.infinity,
+                  height: 78,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Resultados de las principales\nloterías de la República Dominicana',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFE5F0FF),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    height: 1.25,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
