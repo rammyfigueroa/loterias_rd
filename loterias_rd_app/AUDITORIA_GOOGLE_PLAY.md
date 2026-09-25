@@ -2,7 +2,7 @@
 
 ## Segunda fase de validacion
 
-Fecha local de validacion: 2026-09-10
+Fecha local de validacion: 2026-09-24
 
 Esta auditoria se enfoca en preparar la app para pruebas internas en Google Play. No garantiza aprobacion por Google Play; solo documenta el estado tecnico y los riesgos conocidos antes de subir el bundle.
 
@@ -10,7 +10,7 @@ Esta auditoria se enfoca en preparar la app para pruebas internas en Google Play
 
 - Stack detectado: Flutter con proyecto Android nativo en `android/`.
 - Package/applicationId: `com.sorteosdominicanos.app`.
-- Version actual: `1.0.3+7`.
+- Version preparada: `1.0.4+9`.
 - Android SDK: `compileSdk = 36`, `targetSdk = 36`.
 - Formato recomendado para Play Console: Android App Bundle (`.aab`).
 - API usada por la app: `https://api.sorteosdominicanos.workers.dev/results`.
@@ -61,14 +61,14 @@ Gradle 9.1.0 inicia correctamente con JDK 25.0.2, aunque muestra warnings de acc
 Resultado local de `validate_release.sh`:
 
 - Debug APK generado: `build/app/outputs/flutter-apk/app-debug.apk`.
-- Release AAB firmado generado: `build/app/outputs/bundle/release/sorteosdominicanos.aab`.
-- SHA-256 del AAB: `87c93ac2ff413b106c076372c92d666d73fad523648ced06bf5b46ae4663b03e`.
+- Release AAB firmado generado: `build/app/outputs/bundle/release/app-release.aab`.
+- SHA-256 del AAB: `2da38c84718b1cca11a946b63e1890e85c029f0dd8f23f285b6952796f8a3749`.
 
 ## Checklist antes de Internal Testing
 
 - Ejecutar `./test_backend.sh`.
 - Ejecutar `./validate_release.sh`.
-- Confirmar que el AAB generado esta en `build/app/outputs/bundle/release/sorteosdominicanos.aab`.
+- Confirmar que el AAB generado esta en `build/app/outputs/bundle/release/app-release.aab`.
 - Probar la app instalada en un Android real antes de subir a Play Console.
 - Confirmar en Play Console que el nombre, descripcion, politica de privacidad y declaracion de loterias describen la app como informativa.
 

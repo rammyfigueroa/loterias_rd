@@ -36,7 +36,7 @@ ls -l android/app/upload-keystore.jks
 
 Este script genera el AAB firmado en:
 
-`build/app/outputs/bundle/release/sorteosdominicanos.aab`
+`build/app/outputs/bundle/release/app-release.aab`
 
 ## 5. Comando manual equivalente
 
@@ -51,4 +51,4 @@ flutter build appbundle --release --dart-define=LOTTERIES_API_URL=https://api.so
 
 Subir a Internal Testing:
 
-`build/app/outputs/bundle/release/sorteosdominicanos.aab`
+`build/app/outputs/bundle/release/app-release.aab`

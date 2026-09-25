@@ -74,75 +74,85 @@ class LotteryFilterChips extends StatelessWidget {
       ('Favoritas', Icons.star_outline),
       ('Recientes', Icons.schedule),
     ];
-    return Row(
-      children: List.generate(filters.length, (index) {
-        final filter = filters[index];
-        final isSelected = selected == filter.$1;
-        return Expanded(
-          child: Padding(
-            padding:
-                EdgeInsets.only(right: index == filters.length - 1 ? 0 : 8),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF0B6FF4) : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF0B6FF4)
-                      : const Color(0xFFE7EDF5),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 330;
+        final itemSpacing = compact ? 4.0 : 8.0;
+        final iconSize = compact ? 15.0 : 17.0;
+        final labelSpacing = compact ? 4.0 : 6.0;
+        final fontSize = compact ? 11.5 : 13.0;
+        return Row(
+          children: List.generate(filters.length, (index) {
+            final filter = filters[index];
+            final isSelected = selected == filter.$1;
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  right: index == filters.length - 1 ? 0 : itemSpacing,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isSelected
-                        ? const Color(0x260B6FF4)
-                        : const Color(0x0D17345C),
-                    blurRadius: isSelected ? 12 : 8,
-                    offset: const Offset(0, 3),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFF0B6FF4) : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFF0B6FF4)
+                          : const Color(0xFFE7EDF5),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isSelected
+                            ? const Color(0x260B6FF4)
+                            : const Color(0x0D17345C),
+                        blurRadius: isSelected ? 12 : 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => onSelected(filter.$1),
-                  borderRadius: BorderRadius.circular(14),
-                  child: SizedBox(
-                    height: 44,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          filter.$2,
-                          size: 17,
-                          color: isSelected
-                              ? Colors.white
-                              : const Color(0xFF4B5E78),
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            filter.$1,
-                            maxLines: 1,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            style: TextStyle(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => onSelected(filter.$1),
+                      borderRadius: BorderRadius.circular(14),
+                      child: SizedBox(
+                        height: 44,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              filter.$2,
+                              size: iconSize,
                               color: isSelected
                                   ? Colors.white
-                                  : const Color(0xFF1C2C43),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
+                                  : const Color(0xFF4B5E78),
                             ),
-                          ),
+                            SizedBox(width: labelSpacing),
+                            Flexible(
+                              child: Text(
+                                filter.$1,
+                                maxLines: 1,
+                                overflow: TextOverflow.fade,
+                                softWrap: false,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : const Color(0xFF1C2C43),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: fontSize,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          }),
         );
-      }),
+      },
     );
   }
 }

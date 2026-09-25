@@ -11,8 +11,8 @@ La solicitud de acceso a produccion en Google Play aun depende de pasos manuales
 ## Versión auditada
 
 - App Flutter/Android: **Sorteos Dominicanos**.
-- `versionName`: **1.0.3**.
-- `versionCode`: **7**.
+- `versionName`: **1.0.4**.
+- `versionCode`: **9**.
 - `applicationId`: **com.sorteosdominicanos.app**.
 - `namespace`: **com.sorteosdominicanos.app**.
 - `minSdkVersion`: **24** segun manifest fusionado de release.
@@ -24,13 +24,14 @@ La solicitud de acceso a produccion en Google Play aun depende de pasos manuales
 Resultado del build de release: **correcto**.
 
 - Comando ejecutado:
-  - `flutter build appbundle --release --dart-define=LOTTERIES_API_URL=https://api.sorteosdominicanos.workers.dev/results`
+  - `flutter build appbundle --release`
 - AAB generado:
   - `build/app/outputs/bundle/release/app-release.aab`
+  - Copia identificable: `release/playstore/sorteos-dominicanos-1.0.4-9.aab`
 - SHA-256:
-  - `ba0f0e5aa350f5a8a810fe7b447f82608f62954ddfd214e26d905cab9e5ced2e`
+  - `2da38c84718b1cca11a946b63e1890e85c029f0dd8f23f285b6952796f8a3749`
 - Tamano:
-  - `61121217 bytes`
+  - `61482922 bytes`
 
 Validaciones ejecutadas:
 
@@ -38,9 +39,8 @@ Validaciones ejecutadas:
 - `flutter pub get`: correcto.
 - `flutter analyze`: falla en modo estricto por warnings/infos existentes, no por errores de compilacion.
 - `flutter analyze --no-fatal-infos --no-fatal-warnings`: correcto.
-- `flutter test`: no pudo ejecutarse por un artefacto faltante del SDK local de Flutter: `flutter_tester` en `bin/cache/artifacts/engine/darwin-x64/flutter_tester`.
+- `flutter test`: correcto, 11 pruebas aprobadas despues de restaurar `flutter_tester` con `flutter precache --force --universal`.
 - `./test_backend.sh`: correcto.
-- `./validate_release.sh`: falla por el mismo problema local de `flutter test`; backend, firma, pub get y analyze no fatal pasaron antes de ese punto.
 
 Notas:
 
@@ -65,7 +65,7 @@ Resultado:
 Uso en la app:
 
 - La fuente remota por defecto apunta a `https://api.sorteosdominicanos.workers.dev/results`.
-- El build de release se genero con `LOTTERIES_API_URL=https://api.sorteosdominicanos.workers.dev/results`.
+- El build de release usa el endpoint HTTPS predeterminado `https://api.sorteosdominicanos.workers.dev/results`.
 - La pantalla de resultados muestra error y boton de reintento si la API falla.
 - La app no usa actualmente el fallback de `sample_data.dart`; ese archivo existe, pero el repositorio de resultados llama solo a la fuente remota.
 

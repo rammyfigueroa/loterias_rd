@@ -37,7 +37,7 @@ void main() {
     );
 
     expect(find.text('Sin Logo'), findsOneWidget);
-    expect(find.text('1 sorteos'), findsOneWidget);
+    expect(find.text('1 sorteo'), findsOneWidget);
   });
 
   testWidgets('number balls wrap results with five numbers', (tester) async {

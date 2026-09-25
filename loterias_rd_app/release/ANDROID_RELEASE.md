@@ -26,7 +26,7 @@ build/app/outputs/flutter-apk/app-release.apk
 AAB para Play Store:
 
 ```bash
-build/app/outputs/bundle/release/sorteosdominicanos.aab
+build/app/outputs/bundle/release/app-release.aab
 ```
 
 ## Antes de publicar en Play Store

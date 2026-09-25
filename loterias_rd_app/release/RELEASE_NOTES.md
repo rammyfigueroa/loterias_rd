@@ -1,5 +1,27 @@
 # Release Notes
 
+## Version 1.0.4+9
+
+### Español
+
+- Nueva pantalla principal organizada por loterias.
+- Diseno mas moderno y facil de navegar.
+- Busqueda local por loteria, sorteo, fecha y numero ganador.
+- Acceso rapido y persistente a loterias favoritas.
+- Mejor visualizacion de numeros ganadores, historial y detalle.
+- Mejoras al compartir resultados con datos reales del sorteo.
+- Ajustes de branding, drawer, edge-to-edge y estabilidad visual.
+
+### English
+
+- New home screen organized by lottery.
+- More modern design with easier navigation.
+- Local search by lottery, draw, date, and winning number.
+- Quick, persistent access to favorite lotteries.
+- Improved winning number, history, and result detail presentation.
+- Improved sharing with real draw information.
+- Branding, drawer, edge-to-edge, and visual stability fixes.
+
 ## Version 1.0.0+1
 
 Incluye:
