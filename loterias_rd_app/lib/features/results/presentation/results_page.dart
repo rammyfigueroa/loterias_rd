@@ -273,36 +273,57 @@ class _HomeHeader extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                IconButton(
-                  tooltip: 'Abrir menú',
-                  onPressed: onMenu,
-                  icon: const Icon(Icons.menu_rounded, color: Colors.white),
-                  iconSize: 28,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Image.asset(
-                      'assets/branding/logo_horizontal.png',
-                      width: 232,
-                      height: 50,
-                      fit: BoxFit.contain,
-                    ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final logoWidth =
+                    (constraints.maxWidth * .72).clamp(210.0, 270.0);
+                return SizedBox(
+                  height: 78,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          tooltip: 'Abrir menú',
+                          onPressed: onMenu,
+                          icon: const Icon(
+                            Icons.menu_rounded,
+                            color: Colors.white,
+                          ),
+                          iconSize: 28,
+                        ),
+                      ),
+                      IgnorePointer(
+                        child: Image.asset(
+                          'assets/branding/logo_horizontal.png',
+                          width: logoWidth,
+                          height: 72,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 340),
+                child: Text(
+                  'Resultados de las principales\nloterías de la República Dominicana',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFE5F0FF),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                    height: 1.35,
                   ),
                 ),
-              ],
-            ),
-            const Padding(
-              padding: EdgeInsets.only(left: 58, right: 12),
-              child: Text(
-                'Resultados de las principales loterías de la República Dominicana',
-                style: TextStyle(color: Color(0xFFDCEAFE), height: 1.35),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
             DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
