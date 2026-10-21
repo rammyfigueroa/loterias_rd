@@ -144,7 +144,12 @@ void main() {
     final dateAndTime = tester.widget<Text>(
       find.text('21/10/2026 · 7:30 PM'),
     );
-    expect(dateAndTime.style?.color, const Color(0xFF16A34A));
+    expect(dateAndTime.style?.color, const Color(0xFF15803D));
+    expect(dateAndTime.style?.fontWeight, FontWeight.w700);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('recent-result-logo'))),
+      const Size.square(60),
+    );
 
     await tester.tap(find.byType(RecentResultCard));
     expect(tapped, isTrue);

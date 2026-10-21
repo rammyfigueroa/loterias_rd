@@ -578,14 +578,15 @@ class RecentResultCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 52,
-                  height: 52,
+                  key: const ValueKey('recent-result-logo'),
+                  width: 60,
+                  height: 60,
                   padding: const EdgeInsets.all(7),
                   decoration: const BoxDecoration(
                     color: Color(0xFFF1F5F9),
                     shape: BoxShape.circle,
                   ),
-                  child: LotteryIcon(lotteryName: result.lotteryName, size: 38),
+                  child: LotteryIcon(lotteryName: result.lotteryName, size: 46),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -607,7 +608,8 @@ class RecentResultCard extends StatelessWidget {
                           if (_time != null) _time!,
                         ].join(' · '),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF16A34A),
+                              color: const Color(0xFF15803D),
+                              fontWeight: FontWeight.w700,
                             ),
                       ),
                       const SizedBox(height: 11),
