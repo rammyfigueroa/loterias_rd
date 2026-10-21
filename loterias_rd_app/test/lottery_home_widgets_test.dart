@@ -141,7 +141,10 @@ void main() {
 
     expect(find.text('Haiti Bolet'), findsOneWidget);
     expect(find.text('Haiti Bolet 7:30 PM'), findsNothing);
-    expect(find.text('21/10/2026 · 7:30 PM'), findsOneWidget);
+    final dateAndTime = tester.widget<Text>(
+      find.text('21/10/2026 · 7:30 PM'),
+    );
+    expect(dateAndTime.style?.color, const Color(0xFF16A34A));
 
     await tester.tap(find.byType(RecentResultCard));
     expect(tapped, isTrue);

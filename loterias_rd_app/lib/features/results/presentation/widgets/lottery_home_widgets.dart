@@ -607,7 +607,7 @@ class RecentResultCard extends StatelessWidget {
                           if (_time != null) _time!,
                         ].join(' · '),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF64748B),
+                              color: const Color(0xFF16A34A),
                             ),
                       ),
                       const SizedBox(height: 11),
