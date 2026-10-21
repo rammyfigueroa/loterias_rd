@@ -206,6 +206,26 @@ class _LotteryResultsList extends StatelessWidget {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final numberCount = resultNumbers(result).length;
+                      final isShort = hasShortVisibleNumberGroup(result);
+                      if (isShort) {
+                        const spacing = 12.0;
+                        final ballSize = responsiveShortGroupBallSize(
+                          result: result,
+                          availableWidth: constraints.maxWidth,
+                          spacing: spacing,
+                          standardSize: 64,
+                          maximumShortSize: 92,
+                        );
+                        return SizedBox(
+                          width: double.infinity,
+                          child: ResultNumberBalls(
+                            result: result,
+                            size: ballSize,
+                            spacing: spacing,
+                            alignment: WrapAlignment.center,
+                          ),
+                        );
+                      }
                       final ballsInFirstRow = numberCount.clamp(1, 4);
                       const spacing = 10.0;
                       final availableBallWidth = (constraints.maxWidth -

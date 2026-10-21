@@ -40,6 +40,137 @@ void main() {
     expect(find.text('1 sorteo'), findsOneWidget);
   });
 
+  testWidgets('LotteryCard shows today badge only when enabled',
+      (tester) async {
+    final group = LotteryGroup(
+      id: 'anguila',
+      name: 'Anguila',
+      results: [
+        LotteryResult(
+          lotteryName: 'Anguila',
+          drawName: 'Noche',
+          drawDate: '2026-10-21',
+          numbers: const ['01', '02', '03'],
+        ),
+      ],
+    );
+
+    Future<void> pumpCard(bool hasResultsToday) {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 165,
+              height: 176,
+              child: LotteryCard(
+                group: group,
+                isFavorite: false,
+                hasResultsToday: hasResultsToday,
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    await pumpCard(true);
+    expect(find.text('Hoy'), findsOneWidget);
+
+    await pumpCard(false);
+    expect(find.text('Hoy'), findsNothing);
+  });
+
+  testWidgets('RecentResultCard enlarges only groups of up to three numbers',
+      (tester) async {
+    LotteryResult item(List<String> numbers) => LotteryResult(
+          lotteryName: 'Anguila',
+          drawName: 'Tarde',
+          drawDate: '2026-10-21',
+          numbers: numbers,
+        );
+
+    Future<Size> pumpResult(List<String> numbers) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 390,
+              child: RecentResultCard(result: item(numbers), onTap: () {}),
+            ),
+          ),
+        ),
+      );
+      return tester.getSize(find.byKey(const ValueKey('result-ball-0')));
+    }
+
+    for (final count in [1, 2, 3]) {
+      expect(
+        await pumpResult(List.generate(count, (index) => '$index')),
+        const Size.square(50),
+      );
+    }
+    for (final count in [4, 5]) {
+      expect(
+        await pumpResult(List.generate(count, (index) => '$index')),
+        const Size.square(39),
+      );
+    }
+  });
+
+  testWidgets('today card and larger balls fit supported scaled layouts',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final item = LotteryResult(
+      lotteryName: 'Anguila',
+      drawName: 'Anguila 8:00 PM',
+      drawDate: '2026-10-21',
+      numbers: const ['03', '06', '42'],
+    );
+    for (final width in [320.0, 360.0, 390.0, 411.0]) {
+      tester.view.physicalSize = Size(width, 720);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: const TextScaler.linear(1.3),
+            ),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: 144,
+                    height: 174,
+                    child: LotteryCard(
+                      group: LotteryGroup(
+                        id: 'anguila',
+                        name: 'Anguila',
+                        results: [item],
+                      ),
+                      isFavorite: true,
+                      hasResultsToday: true,
+                      onTap: () {},
+                    ),
+                  ),
+                  RecentResultCard(result: item, onTap: () {}),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Hoy'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'width: $width');
+    }
+  });
+
   testWidgets('number balls wrap results with five numbers', (tester) async {
     final item = LotteryResult(
       lotteryName: 'Nacional',

@@ -76,5 +76,118 @@ void main() {
       expect(groupResultsByLottery(const []), isEmpty);
       expect(searchResults(const [], '01'), isEmpty);
     });
+
+    test('detects today using the Dominican Republic calendar date', () {
+      final group = LotteryGroup(
+        id: 'anguila',
+        name: 'Anguila',
+        results: [
+          result(
+            lottery: 'Anguila',
+            draw: 'Noche',
+            date: '2026-10-21',
+          ),
+        ],
+      );
+
+      expect(
+        lotteryHasResultsToday(
+          group,
+          nowUtc: DateTime.utc(2026, 10, 22, 3, 59),
+        ),
+        isTrue,
+      );
+      expect(
+        lotteryHasResultsToday(
+          group,
+          nowUtc: DateTime.utc(2026, 10, 22, 4, 1),
+        ),
+        isFalse,
+      );
+    });
+
+    test('does not mark previous or invalid draw dates as today', () {
+      final nowUtc = DateTime.utc(2026, 10, 21, 18);
+      expect(
+        isResultFromDominicanToday(
+          result(lottery: 'Real', draw: 'Tarde', date: '2026-10-20'),
+          nowUtc: nowUtc,
+        ),
+        isFalse,
+      );
+      expect(
+        isResultFromDominicanToday(
+          result(lottery: 'Real', draw: 'Tarde', date: 'sin-fecha'),
+          nowUtc: nowUtc,
+        ),
+        isFalse,
+      );
+    });
+
+    test('calculates the next Dominican day without a polling timer', () {
+      expect(
+        untilNextDominicanDay(DateTime.utc(2026, 10, 21, 15, 30)),
+        const Duration(hours: 12, minutes: 30),
+      );
+    });
+
+    test('short visible groups use the larger responsive size only', () {
+      for (var count = 1; count <= 3; count++) {
+        final item = result(
+          lottery: 'Anguila',
+          draw: 'Tarde',
+          date: '2026-10-21',
+          numbers: List.generate(count, (index) => '$index'),
+        );
+        expect(hasShortVisibleNumberGroup(item), isTrue);
+        expect(
+          responsiveShortGroupBallSize(
+            result: item,
+            availableWidth: 500,
+            spacing: 9,
+            standardSize: 39,
+            maximumShortSize: 50,
+          ),
+          50,
+        );
+      }
+
+      for (final count in [4, 5]) {
+        final item = result(
+          lottery: 'Nacional',
+          draw: 'Loto',
+          date: '2026-10-21',
+          numbers: List.generate(count, (index) => '$index'),
+        );
+        expect(hasShortVisibleNumberGroup(item), isFalse);
+        expect(
+          responsiveShortGroupBallSize(
+            result: item,
+            availableWidth: 500,
+            spacing: 7,
+            standardSize: 39,
+            maximumShortSize: 50,
+          ),
+          39,
+        );
+      }
+
+      final individualShort = result(
+        lottery: 'Anguila',
+        draw: 'Noche',
+        date: '2026-10-21',
+        numbers: const ['27', '22', '80'],
+      );
+      expect(
+        responsiveShortGroupBallSize(
+          result: individualShort,
+          availableWidth: 320,
+          spacing: 12,
+          standardSize: 64,
+          maximumShortSize: 92,
+        ),
+        92,
+      );
+    });
   });
 }

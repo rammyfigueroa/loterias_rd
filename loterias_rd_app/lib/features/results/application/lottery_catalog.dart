@@ -14,6 +14,27 @@ class LotteryGroup {
   LotteryResult get latestResult => results.first;
 }
 
+const dominicanUtcOffset = Duration(hours: -4);
+
+DateTime dominicanCalendarDate(DateTime nowUtc) {
+  final dominicanNow = nowUtc.toUtc().add(dominicanUtcOffset);
+  return DateTime.utc(
+    dominicanNow.year,
+    dominicanNow.month,
+    dominicanNow.day,
+  );
+}
+
+Duration untilNextDominicanDay(DateTime nowUtc) {
+  final currentDate = dominicanCalendarDate(nowUtc);
+  final nextMidnightUtc = DateTime.utc(
+    currentDate.year,
+    currentDate.month,
+    currentDate.day + 1,
+  ).subtract(dominicanUtcOffset);
+  return nextMidnightUtc.difference(nowUtc.toUtc());
+}
+
 String normalizeLotteryText(String value) {
   return value
       .toLowerCase()
@@ -35,6 +56,24 @@ List<String> resultNumbers(LotteryResult result) {
     return result.prizes.map((prize) => prize.number).toList();
   }
   return result.numbers;
+}
+
+bool hasShortVisibleNumberGroup(LotteryResult result) {
+  final count = resultNumbers(result).length;
+  return count >= 1 && count <= 3;
+}
+
+double responsiveShortGroupBallSize({
+  required LotteryResult result,
+  required double availableWidth,
+  required double spacing,
+  required double standardSize,
+  required double maximumShortSize,
+}) {
+  if (!hasShortVisibleNumberGroup(result)) return standardSize;
+  final count = resultNumbers(result).length;
+  final availableBallWidth = (availableWidth - spacing * (count - 1)) / count;
+  return availableBallWidth.clamp(standardSize, maximumShortSize).toDouble();
 }
 
 DateTime? parseDrawDate(String value, {DateTime? now}) {
@@ -68,6 +107,27 @@ DateTime? parseDrawDate(String value, {DateTime? now}) {
     );
   }
   return null;
+}
+
+bool isResultFromDominicanToday(
+  LotteryResult result, {
+  required DateTime nowUtc,
+}) {
+  final today = dominicanCalendarDate(nowUtc);
+  final drawDate = parseDrawDate(result.drawDate, now: today);
+  return drawDate != null &&
+      drawDate.year == today.year &&
+      drawDate.month == today.month &&
+      drawDate.day == today.day;
+}
+
+bool lotteryHasResultsToday(
+  LotteryGroup group, {
+  required DateTime nowUtc,
+}) {
+  return group.results.any(
+    (result) => isResultFromDominicanToday(result, nowUtc: nowUtc),
+  );
 }
 
 DateTime? resultDateTime(LotteryResult result, {DateTime? now}) {

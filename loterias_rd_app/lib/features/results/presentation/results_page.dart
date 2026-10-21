@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -20,7 +22,7 @@ class ResultsPage extends StatefulWidget {
   State<ResultsPage> createState() => _ResultsPageState();
 }
 
-class _ResultsPageState extends State<ResultsPage> {
+class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final LotteryResultsRepository _repository;
   final FavoritesRepository _favoritesRepository = FavoritesRepository();
@@ -31,23 +33,50 @@ class _ResultsPageState extends State<ResultsPage> {
   String _query = '';
   String _selectedFilter = 'Todas';
   bool _showAllRecent = false;
+  DateTime _nowUtc = DateTime.now().toUtc();
+  Timer? _dayChangeTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _repository = LotteryResultsRepository(
       remoteSource: LotteryResultsRemoteSource(),
       sampleSource: SampleLotteryResultsSource(),
     );
     _futureResults = _loadResults();
     _loadFavorites();
+    _scheduleDayChangeRefresh();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _dayChangeTimer?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshDominicanDate();
+    }
+  }
+
+  void _refreshDominicanDate() {
+    final nowUtc = DateTime.now().toUtc();
+    if (mounted) setState(() => _nowUtc = nowUtc);
+    _scheduleDayChangeRefresh(nowUtc: nowUtc);
+  }
+
+  void _scheduleDayChangeRefresh({DateTime? nowUtc}) {
+    _dayChangeTimer?.cancel();
+    final currentUtc = nowUtc ?? DateTime.now().toUtc();
+    final delay =
+        untilNextDominicanDay(currentUtc) + const Duration(seconds: 1);
+    _dayChangeTimer = Timer(delay, _refreshDominicanDate);
   }
 
   Future<List<LotteryResult>> _loadResults() async {
@@ -62,7 +91,12 @@ class _ResultsPageState extends State<ResultsPage> {
 
   Future<void> _refresh() async {
     final next = _loadResults();
-    setState(() => _futureResults = next);
+    final nowUtc = DateTime.now().toUtc();
+    setState(() {
+      _futureResults = next;
+      _nowUtc = nowUtc;
+    });
+    _scheduleDayChangeRefresh(nowUtc: nowUtc);
     await Future.wait([next, _loadFavorites()]);
   }
 
@@ -197,6 +231,10 @@ class _ResultsPageState extends State<ResultsPage> {
                           return LotteryCard(
                             group: group,
                             isFavorite: _favoriteLotteryIds.contains(group.id),
+                            hasResultsToday: lotteryHasResultsToday(
+                              group,
+                              nowUtc: _nowUtc,
+                            ),
                             onTap: () => _openLottery(group),
                           );
                         },

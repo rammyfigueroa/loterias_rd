@@ -244,12 +244,14 @@ class LotteryVisualStyle {
 class LotteryCard extends StatefulWidget {
   final LotteryGroup group;
   final bool isFavorite;
+  final bool hasResultsToday;
   final VoidCallback onTap;
 
   const LotteryCard({
     super.key,
     required this.group,
     required this.isFavorite,
+    this.hasResultsToday = false,
     required this.onTap,
   });
 
@@ -278,12 +280,21 @@ class _LotteryCardState extends State<LotteryCard> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
-            boxShadow: const [
-              BoxShadow(
+            border: widget.hasResultsToday
+                ? Border.all(color: const Color(0xFF16A34A), width: 1.7)
+                : null,
+            boxShadow: [
+              const BoxShadow(
                 color: Color(0x141B3555),
                 blurRadius: 18,
                 offset: Offset(0, 6),
               ),
+              if (widget.hasResultsToday)
+                const BoxShadow(
+                  color: Color(0x4016A34A),
+                  blurRadius: 16,
+                  spreadRadius: 1,
+                ),
             ],
           ),
           child: Material(
@@ -342,11 +353,53 @@ class _LotteryCardState extends State<LotteryCard> {
                               ),
                             ),
                           ),
+                          if (widget.hasResultsToday)
+                            Positioned(
+                              left: 5,
+                              top: 5,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF16A34A),
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x3316A34A),
+                                      blurRadius: 7,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today_rounded,
+                                      size: 11,
+                                      color: Colors.white,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Hoy',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           if (widget.isFavorite)
-                            const Positioned(
+                            Positioned(
                               left: 8,
-                              top: 8,
-                              child: Icon(
+                              top: widget.hasResultsToday ? null : 8,
+                              bottom: widget.hasResultsToday ? 8 : null,
+                              child: const Icon(
                                 Icons.star_rounded,
                                 size: 17,
                                 color: Color(0xFFF2B400),
@@ -446,6 +499,7 @@ class ResultNumberBalls extends StatelessWidget {
         final foreground =
             index % colors.length == 1 ? const Color(0xFF0F172A) : Colors.white;
         return Container(
+          key: ValueKey('result-ball-$index'),
           width: size,
           height: size,
           alignment: Alignment.center,
@@ -564,7 +618,30 @@ class RecentResultCard extends StatelessWidget {
                             ),
                       ),
                       const SizedBox(height: 11),
-                      ResultNumberBalls(result: result, size: 39),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isShort = hasShortVisibleNumberGroup(result);
+                          final spacing = isShort ? 9.0 : 7.0;
+                          final ballSize = responsiveShortGroupBallSize(
+                            result: result,
+                            availableWidth: constraints.maxWidth,
+                            spacing: spacing,
+                            standardSize: 39,
+                            maximumShortSize: 50,
+                          );
+                          return SizedBox(
+                            width: double.infinity,
+                            child: ResultNumberBalls(
+                              result: result,
+                              size: ballSize,
+                              spacing: spacing,
+                              alignment: isShort
+                                  ? WrapAlignment.center
+                                  : WrapAlignment.start,
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
