@@ -85,7 +85,7 @@ void main() {
       (tester) async {
     LotteryResult item(List<String> numbers) => LotteryResult(
           lotteryName: 'Anguila',
-          drawName: 'Tarde',
+          drawName: 'Anguila 7:30 PM',
           drawDate: '2026-10-21',
           numbers: numbers,
         );
@@ -107,7 +107,7 @@ void main() {
     for (final count in [1, 2, 3]) {
       expect(
         await pumpResult(List.generate(count, (index) => '$index')),
-        const Size.square(50),
+        const Size.square(64),
       );
     }
     for (final count in [4, 5]) {
@@ -116,6 +116,35 @@ void main() {
         const Size.square(39),
       );
     }
+  });
+
+  testWidgets('RecentResultCard shows only lottery and day-first date metadata',
+      (tester) async {
+    var tapped = false;
+    final item = LotteryResult(
+      lotteryName: 'Haiti Bolet',
+      drawName: 'Haiti Bolet 7:30 PM',
+      drawDate: '2026-10-21',
+      numbers: const ['57', '27', '39'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RecentResultCard(
+            result: item,
+            onTap: () => tapped = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Haiti Bolet'), findsOneWidget);
+    expect(find.text('Haiti Bolet 7:30 PM'), findsNothing);
+    expect(find.text('21/10/2026 · 7:30 PM'), findsOneWidget);
+
+    await tester.tap(find.byType(RecentResultCard));
+    expect(tapped, isTrue);
   });
 
   testWidgets('today card and larger balls fit supported scaled layouts',
@@ -167,6 +196,7 @@ void main() {
       );
 
       expect(find.text('Hoy'), findsOneWidget);
+      expect(find.text('21/10/2026 · 8:00 PM'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'width: $width');
     }
   });

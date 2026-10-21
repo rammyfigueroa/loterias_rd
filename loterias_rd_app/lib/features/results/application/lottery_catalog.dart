@@ -109,6 +109,15 @@ DateTime? parseDrawDate(String value, {DateTime? now}) {
   return null;
 }
 
+String formatDrawDateDayFirst(String value, {DateTime? now}) {
+  final date = parseDrawDate(value, now: now);
+  if (date == null) return value.trim();
+
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  return '$day/$month/${date.year}';
+}
+
 bool isResultFromDominicanToday(
   LotteryResult result, {
   required DateTime nowUtc,

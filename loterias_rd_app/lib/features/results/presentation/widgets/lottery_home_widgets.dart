@@ -600,19 +600,12 @@ class RecentResultCard extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                             ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        result.drawName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF475569),
-                            ),
-                      ),
                       const SizedBox(height: 4),
                       Text(
-                        [result.drawDate, if (_time != null) _time!]
-                            .join(' · '),
+                        [
+                          formatDrawDateDayFirst(result.drawDate),
+                          if (_time != null) _time!,
+                        ].join(' · '),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: const Color(0xFF64748B),
                             ),
@@ -621,13 +614,13 @@ class RecentResultCard extends StatelessWidget {
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final isShort = hasShortVisibleNumberGroup(result);
-                          final spacing = isShort ? 9.0 : 7.0;
+                          final spacing = isShort ? 8.0 : 7.0;
                           final ballSize = responsiveShortGroupBallSize(
                             result: result,
                             availableWidth: constraints.maxWidth,
                             spacing: spacing,
                             standardSize: 39,
-                            maximumShortSize: 50,
+                            maximumShortSize: 64,
                           );
                           return SizedBox(
                             width: double.infinity,

@@ -77,6 +77,13 @@ void main() {
       expect(searchResults(const [], '01'), isEmpty);
     });
 
+    test('formats draw dates day first without changing their calendar date',
+        () {
+      expect(formatDrawDateDayFirst('2026-10-21'), '21/10/2026');
+      expect(formatDrawDateDayFirst('2027/01/05'), '05/01/2027');
+      expect(formatDrawDateDayFirst('sin-fecha'), 'sin-fecha');
+    });
+
     test('detects today using the Dominican Republic calendar date', () {
       final group = LotteryGroup(
         id: 'anguila',
