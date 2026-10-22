@@ -4,6 +4,7 @@ import '../../../data/lottery_results_remote_source.dart';
 import '../../../data/lottery_results_repository.dart';
 import '../../../data/sample_data.dart';
 import '../../../domain/lottery_result.dart';
+import '../application/lottery_catalog.dart';
 
 enum StatsMode { calientes, frios, veces }
 
@@ -67,32 +68,11 @@ class _StatsPageState extends State<StatsPage> {
     return list;
   }
 
-  DateTime? _parseDrawDate(String value) {
-    final text = value.trim();
-    if (text.isEmpty) return null;
-
-    final isoMatch = RegExp(r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})').firstMatch(text);
-    if (isoMatch != null) {
-      return DateTime.tryParse(
-        '${isoMatch.group(1)!}-${isoMatch.group(2)!.padLeft(2, '0')}-${isoMatch.group(3)!.padLeft(2, '0')}',
-      );
-    }
-
-    final latinMatch = RegExp(r'^(\d{1,2})[-/](\d{1,2})[-/](\d{4})').firstMatch(text);
-    if (latinMatch != null) {
-      final day = latinMatch.group(1)!.padLeft(2, '0');
-      final month = latinMatch.group(2)!.padLeft(2, '0');
-      final year = latinMatch.group(3)!;
-      return DateTime.tryParse('$year-$month-$day');
-    }
-
-    return DateTime.tryParse(text);
-  }
-
-  DateTime _onlyDate(DateTime date) => DateTime(date.year, date.month, date.day);
+  DateTime _onlyDate(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
 
   List<LotteryResult> _filterByPeriod(List<LotteryResult> results) {
-    final today = _onlyDate(DateTime.now());
+    final today = dominicanCalendarDate(DateTime.now().toUtc());
     DateTime? from;
     DateTime? to;
 
@@ -116,7 +96,7 @@ class _StatsPageState extends State<StatsPage> {
     }
 
     return results.where((result) {
-      final parsed = _parseDrawDate(result.drawDate);
+      final parsed = parseDrawDate(result.drawDate, now: today);
       if (parsed == null) return true;
       final date = _onlyDate(parsed);
       if (from != null && date.isBefore(from)) return false;
@@ -127,9 +107,7 @@ class _StatsPageState extends State<StatsPage> {
 
   String _formatDate(DateTime? date, String fallback) {
     if (date == null) return fallback;
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    return '$day/$month/${date.year}';
+    return formatCalendarDate(date);
   }
 
   Future<void> _pickCustomDate({required bool isFrom}) async {
@@ -174,7 +152,9 @@ class _StatsPageState extends State<StatsPage> {
     final periodResults = _filterByPeriod(results);
     final filtered = _selectedLottery == null
         ? periodResults
-        : periodResults.where((r) => r.lotteryName == _selectedLottery).toList();
+        : periodResults
+            .where((r) => r.lotteryName == _selectedLottery)
+            .toList();
 
     final stats = <String, _NumberStat>{};
     for (var i = 0; i < 100; i++) {
@@ -839,7 +819,8 @@ class _StatsPageState extends State<StatsPage> {
               children: [
                 _buildHeader(),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Row(
                     children: [
                       _modeChip('Fríos', StatsMode.frios),
@@ -900,7 +881,8 @@ class _StatsNumbersCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mainStats = stats.take(3).toList();
-    final extraStats = stats.length > 3 ? stats.skip(3).toList() : <_NumberStat>[];
+    final extraStats =
+        stats.length > 3 ? stats.skip(3).toList() : <_NumberStat>[];
 
     return Container(
       width: double.infinity,
@@ -1100,7 +1082,9 @@ class _StatBall extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: ballColor,
                   border: Border.all(
-                    color: _needsBorder ? Colors.grey.shade300 : Colors.white.withOpacity(0.78),
+                    color: _needsBorder
+                        ? Colors.grey.shade300
+                        : Colors.white.withOpacity(0.78),
                     width: isMain ? 2.4 : 2,
                   ),
                   boxShadow: const [
@@ -1149,7 +1133,9 @@ class _StatBall extends StatelessWidget {
   }
 
   bool get _needsBorder {
-    return mode == StatsMode.veces || !isMain || _ballColor == const Color(0xFFF3F4F6);
+    return mode == StatsMode.veces ||
+        !isMain ||
+        _ballColor == const Color(0xFFF3F4F6);
   }
 
   Color get _ballColor {

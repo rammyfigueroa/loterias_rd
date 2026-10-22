@@ -1,4 +1,5 @@
 import '../../../domain/lottery_result.dart';
+import 'lottery_catalog.dart';
 
 List<String> resultShareNumbers(LotteryResult result) {
   if (result.prizes.isNotEmpty) {
@@ -23,7 +24,8 @@ String buildResultShareText(LotteryResult result) {
     if (result.drawName.trim().isNotEmpty) result.drawName.trim(),
     if (numbers.isNotEmpty) 'Resultado: $numbers',
     if (prizes.isNotEmpty) 'Premios: $prizes',
-    if (result.drawDate.trim().isNotEmpty) result.drawDate.trim(),
+    if (result.drawDate.trim().isNotEmpty)
+      formatDrawDateDayFirst(result.drawDate),
     '',
     'Compartido desde Sorteos Dominicanos',
   ];

@@ -107,6 +107,7 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
           group: group,
           favoritesRepository: _favoritesRepository,
           initiallyFavorite: _favoriteLotteryIds.contains(group.id),
+          nowUtc: _nowUtc,
         ),
       ),
     );
@@ -115,7 +116,9 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
 
   void _openResult(LotteryResult result) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ResultDetailPage(result: result)),
+      MaterialPageRoute(
+        builder: (_) => ResultDetailPage(result: result, nowUtc: _nowUtc),
+      ),
     );
   }
 
@@ -272,6 +275,7 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) => RecentResultCard(
                     result: visibleRecent[index],
+                    nowUtc: _nowUtc,
                     onTap: () => _openResult(visibleRecent[index]),
                   ),
                 ),

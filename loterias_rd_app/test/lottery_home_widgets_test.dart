@@ -96,7 +96,11 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               width: 390,
-              child: RecentResultCard(result: item(numbers), onTap: () {}),
+              child: RecentResultCard(
+                result: item(numbers),
+                nowUtc: DateTime.utc(2026, 10, 21, 18),
+                onTap: () {},
+              ),
             ),
           ),
         ),
@@ -133,6 +137,7 @@ void main() {
         home: Scaffold(
           body: RecentResultCard(
             result: item,
+            nowUtc: DateTime.utc(2026, 10, 21, 18),
             onTap: () => tapped = true,
           ),
         ),
@@ -145,7 +150,7 @@ void main() {
       find.text('21/10/2026 · 7:30 PM'),
     );
     expect(dateAndTime.style?.color, const Color(0xFF15803D));
-    expect(dateAndTime.style?.fontWeight, FontWeight.w700);
+    expect(dateAndTime.style?.fontWeight, FontWeight.w600);
     expect(
       tester.getSize(find.byKey(const ValueKey('recent-result-logo'))),
       const Size.square(60),
@@ -195,7 +200,11 @@ void main() {
                       onTap: () {},
                     ),
                   ),
-                  RecentResultCard(result: item, onTap: () {}),
+                  RecentResultCard(
+                    result: item,
+                    nowUtc: DateTime.utc(2026, 10, 21, 18),
+                    onTap: () {},
+                  ),
                 ],
               ),
             ),
@@ -207,6 +216,35 @@ void main() {
       expect(find.text('21/10/2026 · 8:00 PM'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'width: $width');
     }
+  });
+
+  testWidgets('RecentResultCard keeps previous result metadata gray',
+      (tester) async {
+    final item = LotteryResult(
+      lotteryName: 'Anguila',
+      drawName: 'Anguila 8:00 PM',
+      drawDate: '2026-10-20',
+      numbers: const ['03', '06', '42'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RecentResultCard(
+            result: item,
+            nowUtc: DateTime.utc(2026, 10, 21, 18),
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+
+    final dateAndTime = tester.widget<Text>(
+      find.byKey(const ValueKey('recent-result-date-time')),
+    );
+    expect(dateAndTime.data, '20/10/2026 · 8:00 PM');
+    expect(dateAndTime.style?.color, const Color(0xFF64748B));
+    expect(dateAndTime.style?.fontWeight, FontWeight.w400);
   });
 
   testWidgets('number balls wrap results with five numbers', (tester) async {

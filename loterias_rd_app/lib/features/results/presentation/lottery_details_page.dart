@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../data/favorites_repository.dart';
 import '../../../domain/lottery_result.dart';
 import '../application/lottery_catalog.dart';
@@ -12,25 +15,60 @@ class LotteryDetailsPage extends StatefulWidget {
   final LotteryGroup group;
   final FavoritesRepository favoritesRepository;
   final bool initiallyFavorite;
+  final DateTime? nowUtc;
 
   const LotteryDetailsPage({
     super.key,
     required this.group,
     required this.favoritesRepository,
     required this.initiallyFavorite,
+    this.nowUtc,
   });
 
   @override
   State<LotteryDetailsPage> createState() => _LotteryDetailsPageState();
 }
 
-class _LotteryDetailsPageState extends State<LotteryDetailsPage> {
+class _LotteryDetailsPageState extends State<LotteryDetailsPage>
+    with WidgetsBindingObserver {
   late bool _isFavorite;
+  late DateTime _nowUtc;
+  Timer? _dayChangeTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _nowUtc = widget.nowUtc ?? DateTime.now().toUtc();
     _isFavorite = widget.initiallyFavorite;
+    _scheduleDayChangeRefresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _dayChangeTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshDominicanDate();
+  }
+
+  void _refreshDominicanDate() {
+    final nowUtc = DateTime.now().toUtc();
+    if (mounted) setState(() => _nowUtc = nowUtc);
+    _scheduleDayChangeRefresh(nowUtc: nowUtc);
+  }
+
+  void _scheduleDayChangeRefresh({DateTime? nowUtc}) {
+    _dayChangeTimer?.cancel();
+    final currentUtc = nowUtc ?? DateTime.now().toUtc();
+    _dayChangeTimer = Timer(
+      untilNextDominicanDay(currentUtc) + const Duration(seconds: 1),
+      _refreshDominicanDate,
+    );
   }
 
   Future<void> _toggleFavorite() async {
@@ -41,7 +79,9 @@ class _LotteryDetailsPageState extends State<LotteryDetailsPage> {
 
   void _openResult(LotteryResult result) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ResultDetailPage(result: result)),
+      MaterialPageRoute(
+        builder: (_) => ResultDetailPage(result: result, nowUtc: _nowUtc),
+      ),
     );
   }
 
@@ -110,11 +150,13 @@ class _LotteryDetailsPageState extends State<LotteryDetailsPage> {
             children: [
               _LotteryResultsList(
                 results: recent,
+                nowUtc: _nowUtc,
                 emptyMessage: 'No hay resultados recientes disponibles.',
                 onOpen: _openResult,
               ),
               _LotteryResultsList(
                 results: history,
+                nowUtc: _nowUtc,
                 emptyMessage: 'Todavía no hay resultados anteriores.',
                 onOpen: _openResult,
               ),
@@ -128,11 +170,13 @@ class _LotteryDetailsPageState extends State<LotteryDetailsPage> {
 
 class _LotteryResultsList extends StatelessWidget {
   final List<LotteryResult> results;
+  final DateTime nowUtc;
   final String emptyMessage;
   final ValueChanged<LotteryResult> onOpen;
 
   const _LotteryResultsList({
     required this.results,
+    required this.nowUtc,
     required this.emptyMessage,
     required this.onOpen,
   });
@@ -149,6 +193,7 @@ class _LotteryResultsList extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final result = results[index];
+        final isToday = isResultFromDominicanToday(result, nowUtc: nowUtc);
         return DecoratedBox(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -189,8 +234,18 @@ class _LotteryResultsList extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              result.drawDate,
-                              style: const TextStyle(color: Color(0xFF64748B)),
+                              formatDrawDateDayFirst(
+                                result.drawDate,
+                                now: dominicanCalendarDate(nowUtc),
+                              ),
+                              key: const ValueKey('lottery-result-date'),
+                              style: TextStyle(
+                                color: isToday
+                                    ? AppTheme.todayResultMetadataColor
+                                    : const Color(0xFF64748B),
+                                fontWeight:
+                                    isToday ? FontWeight.w600 : FontWeight.w400,
+                              ),
                             ),
                           ],
                         ),
@@ -253,7 +308,17 @@ class _LotteryResultsList extends StatelessWidget {
                           .map(
                             (prize) => Text(
                               '${prize.label}: ${prize.number}',
-                              style: Theme.of(context).textTheme.bodySmall,
+                              key: ValueKey('prize-${prize.position}'),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: isToday
+                                        ? AppTheme.todayResultMetadataColor
+                                        : null,
+                                    fontWeight:
+                                        isToday ? FontWeight.w600 : null,
+                                  ),
                             ),
                           )
                           .toList(),

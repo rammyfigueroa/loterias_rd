@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../data/favorites_repository.dart';
 import '../../../domain/lottery_result.dart';
+import '../application/lottery_catalog.dart';
 import '../application/result_share_service.dart';
 import 'widgets/horizontal_result_balls.dart';
 import 'widgets/lottery_icon.dart';
@@ -9,26 +13,60 @@ import 'widgets/three_prize_balls.dart';
 
 class ResultDetailPage extends StatefulWidget {
   final LotteryResult result;
+  final DateTime? nowUtc;
 
-  const ResultDetailPage({super.key, required this.result});
+  const ResultDetailPage({super.key, required this.result, this.nowUtc});
 
   @override
   State<ResultDetailPage> createState() => _ResultDetailPageState();
 }
 
-class _ResultDetailPageState extends State<ResultDetailPage> {
+class _ResultDetailPageState extends State<ResultDetailPage>
+    with WidgetsBindingObserver {
   final FavoritesRepository _favoritesRepository = FavoritesRepository();
   bool _isFavorite = false;
+  late DateTime _nowUtc;
+  Timer? _dayChangeTimer;
 
   String get _id =>
       '${widget.result.lotteryName}_${widget.result.drawName}_${widget.result.drawDate}';
 
-  bool get _isThreeNumberDraw => widget.result.numbers.length <= 3;
+  bool get _isThreeNumberDraw => resultNumbers(widget.result).length <= 3;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _nowUtc = widget.nowUtc ?? DateTime.now().toUtc();
     _loadFavorite();
+    _scheduleDayChangeRefresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _dayChangeTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshDominicanDate();
+  }
+
+  void _refreshDominicanDate() {
+    final nowUtc = DateTime.now().toUtc();
+    if (mounted) setState(() => _nowUtc = nowUtc);
+    _scheduleDayChangeRefresh(nowUtc: nowUtc);
+  }
+
+  void _scheduleDayChangeRefresh({DateTime? nowUtc}) {
+    _dayChangeTimer?.cancel();
+    final currentUtc = nowUtc ?? DateTime.now().toUtc();
+    _dayChangeTimer = Timer(
+      untilNextDominicanDay(currentUtc) + const Duration(seconds: 1),
+      _refreshDominicanDate,
+    );
   }
 
   Future<void> _loadFavorite() async {
@@ -50,6 +88,10 @@ class _ResultDetailPageState extends State<ResultDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isToday = isResultFromDominicanToday(
+      widget.result,
+      nowUtc: _nowUtc,
+    );
     return Scaffold(
       backgroundColor: const Color(0xFF003893),
       appBar: AppBar(
@@ -89,11 +131,12 @@ class _ResultDetailPageState extends State<ResultDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _DetailHeader(result: widget.result),
+                _DetailHeader(result: widget.result, nowUtc: _nowUtc),
                 const SizedBox(height: 18),
                 _NumbersCard(
-                  numbers: widget.result.numbers,
+                  result: widget.result,
                   isThreeNumberDraw: _isThreeNumberDraw,
+                  isToday: isToday,
                 ),
                 const SizedBox(height: 18),
                 Text(
@@ -134,8 +177,9 @@ class _ResultDetailPageState extends State<ResultDetailPage> {
 
 class _DetailHeader extends StatelessWidget {
   final LotteryResult result;
+  final DateTime nowUtc;
 
-  const _DetailHeader({required this.result});
+  const _DetailHeader({required this.result, required this.nowUtc});
 
   @override
   Widget build(BuildContext context) {
@@ -187,7 +231,10 @@ class _DetailHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  result.drawDate,
+                  formatDrawDateDayFirst(
+                    result.drawDate,
+                    now: dominicanCalendarDate(nowUtc),
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -205,19 +252,26 @@ class _DetailHeader extends StatelessWidget {
 }
 
 class _NumbersCard extends StatelessWidget {
-  final List<String> numbers;
+  final LotteryResult result;
   final bool isThreeNumberDraw;
+  final bool isToday;
 
   const _NumbersCard({
-    required this.numbers,
+    required this.result,
     required this.isThreeNumberDraw,
+    required this.isToday,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(18, 22, 18, numbers.length > 5 ? 30 : 26),
+      padding: EdgeInsets.fromLTRB(
+        18,
+        22,
+        18,
+        resultNumbers(result).length > 5 ? 30 : 26,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
@@ -242,11 +296,19 @@ class _NumbersCard extends StatelessWidget {
           const SizedBox(height: 18),
           isThreeNumberDraw
               ? ThreePrizeBalls(
-                  numbers: numbers,
+                  numbers: resultNumbers(result),
+                  labels: result.prizes.isEmpty
+                      ? null
+                      : result.prizes.map((prize) => prize.label).toList(),
                   maxSize: 96,
-                  labelColor: Colors.grey.shade600,
+                  labelColor: isToday
+                      ? AppTheme.todayResultMetadataColor
+                      : Colors.grey.shade600,
                 )
-              : HorizontalResultBalls(numbers: numbers, size: 64),
+              : HorizontalResultBalls(
+                  numbers: resultNumbers(result),
+                  size: 64,
+                ),
         ],
       ),
     );

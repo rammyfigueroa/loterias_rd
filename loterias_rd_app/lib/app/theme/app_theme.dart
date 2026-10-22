@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 /// Central place to configure the application's theme.
 class AppTheme {
+  static const Color todayResultMetadataColor = Color(0xFF15803D);
+
   /// Returns a light theme based on the Dominican flag colours.
   static ThemeData get lightTheme {
     return ThemeData(

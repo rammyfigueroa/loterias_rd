@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/lottery_result.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../application/lottery_catalog.dart';
 import 'lottery_icon.dart';
 
@@ -537,22 +538,19 @@ class ResultNumberBalls extends StatelessWidget {
 
 class RecentResultCard extends StatelessWidget {
   final LotteryResult result;
+  final DateTime nowUtc;
   final VoidCallback onTap;
 
   const RecentResultCard({
     super.key,
     required this.result,
+    required this.nowUtc,
     required this.onTap,
   });
 
-  String? get _time {
-    return RegExp(r'\b\d{1,2}:\d{2}\s*(?:AM|PM)\b', caseSensitive: false)
-        .firstMatch(result.drawName)
-        ?.group(0);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final isToday = isResultFromDominicanToday(result, nowUtc: nowUtc);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -603,13 +601,17 @@ class RecentResultCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        [
-                          formatDrawDateDayFirst(result.drawDate),
-                          if (_time != null) _time!,
-                        ].join(' · '),
+                        formatResultDateTime(
+                          result,
+                          now: dominicanCalendarDate(nowUtc),
+                        ),
+                        key: const ValueKey('recent-result-date-time'),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF15803D),
-                              fontWeight: FontWeight.w700,
+                              color: isToday
+                                  ? AppTheme.todayResultMetadataColor
+                                  : const Color(0xFF64748B),
+                              fontWeight:
+                                  isToday ? FontWeight.w600 : FontWeight.w400,
                             ),
                       ),
                       const SizedBox(height: 11),

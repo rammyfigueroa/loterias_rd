@@ -81,7 +81,18 @@ void main() {
         () {
       expect(formatDrawDateDayFirst('2026-10-21'), '21/10/2026');
       expect(formatDrawDateDayFirst('2027/01/05'), '05/01/2027');
+      expect(formatDrawDateDayFirst('2026-01-05'), '05/01/2026');
+      expect(formatDrawDateDayFirst('31-12-2025'), '31/12/2025');
       expect(formatDrawDateDayFirst('sin-fecha'), 'sin-fecha');
+    });
+
+    test('formats result date and preserves its existing time', () {
+      final item = result(
+        lottery: 'Anguila',
+        draw: 'Anguila 7:30 PM',
+        date: '2026-10-21',
+      );
+      expect(formatResultDateTime(item), '21/10/2026 · 7:30 PM');
     });
 
     test('detects today using the Dominican Republic calendar date', () {

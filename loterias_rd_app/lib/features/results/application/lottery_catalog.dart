@@ -113,9 +113,26 @@ String formatDrawDateDayFirst(String value, {DateTime? now}) {
   final date = parseDrawDate(value, now: now);
   if (date == null) return value.trim();
 
+  return formatCalendarDate(date);
+}
+
+String formatCalendarDate(DateTime date) {
   final day = date.day.toString().padLeft(2, '0');
   final month = date.month.toString().padLeft(2, '0');
   return '$day/$month/${date.year}';
+}
+
+String? resultDrawTime(LotteryResult result) {
+  return RegExp(
+    r'\b\d{1,2}:\d{2}\s*(?:AM|PM)\b',
+    caseSensitive: false,
+  ).firstMatch(result.drawName)?.group(0);
+}
+
+String formatResultDateTime(LotteryResult result, {DateTime? now}) {
+  final date = formatDrawDateDayFirst(result.drawDate, now: now);
+  final time = resultDrawTime(result);
+  return [date, if (time != null) time].join(' · ');
 }
 
 bool isResultFromDominicanToday(
