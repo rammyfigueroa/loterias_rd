@@ -1,5 +1,23 @@
 # Release Notes
 
+## Version 1.0.5+10
+
+### Español
+
+- Nuevo indicador verde para identificar loterías con resultados de hoy.
+- Números ganadores más grandes y fáciles de leer.
+- Presentación más clara de los resultados recientes.
+- Fechas, horarios y logos con mejor legibilidad.
+- Ajustes generales de interfaz y adaptación a distintos tamaños de pantalla.
+
+### English
+
+- New green indicator to highlight lotteries with today's results.
+- Larger, easier-to-read winning numbers.
+- Clearer recent results presentation.
+- Improved readability for dates, times, and lottery logos.
+- General interface and responsive layout improvements.
+
 ## Version 1.0.4+9
 
 ### Español
