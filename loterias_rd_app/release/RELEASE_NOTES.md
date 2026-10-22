@@ -1,5 +1,23 @@
 # Release Notes
 
+## Version 1.0.6+11
+
+### Español
+
+- Nueva imagen e icono de Sorteos Dominicanos.
+- Fechas más claras en formato día/mes/año.
+- Identificación visual de los resultados del día.
+- Mejoras de legibilidad en resultados e historial.
+- Ajustes generales de presentación y estabilidad.
+
+### English
+
+- Updated Sorteos Dominicanos app icon and visual identity.
+- Clearer dates in day/month/year format.
+- Improved highlighting of today's lottery results.
+- Better readability across results and history.
+- General presentation and stability improvements.
+
 ## Version 1.0.5+10
 
 ### Español

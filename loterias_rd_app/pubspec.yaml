@@ -1,7 +1,7 @@
 name: sorteosdominicanos_app
 description: Sorteos Dominicanos results app
 publish_to: "none"
-version: 1.0.5+10
+version: 1.0.6+11
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
