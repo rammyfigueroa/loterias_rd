@@ -19,6 +19,7 @@ require_asset() {
 
 require_asset "app_icon.png"
 require_asset "app_icon_foreground.png"
+require_asset "sorteos_dominicanos_icon_master.png"
 require_asset "app_icon_48.png"
 require_asset "app_icon_72.png"
 require_asset "app_icon_96.png"
@@ -52,7 +53,7 @@ if [ -d "android/app/src/main/res" ]; then
   cat > android/app/src/main/res/values/icon_colors.xml <<'XML'
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#0B4FD3</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>
 XML
 
@@ -61,6 +62,7 @@ XML
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
     <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome"/>
 </adaptive-icon>
 XML
 
@@ -69,6 +71,7 @@ XML
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
     <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome"/>
 </adaptive-icon>
 XML
 
@@ -182,7 +185,7 @@ let foregrounds: [(String, Int, Int)] = [
 ]
 for (folder, canvas, inner) in foregrounds {
     try writePNG(
-        source: icon,
+        source: foreground,
         destination: "android/app/src/main/res/\(folder)/ic_launcher_foreground.png",
         canvas: canvas,
         inner: inner

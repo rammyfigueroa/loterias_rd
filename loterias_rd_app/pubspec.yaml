@@ -32,5 +32,8 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
-    - assets/branding/
+    - assets/branding/logo_horizontal.png
+    - assets/branding/sorteos_dominicanos_header.png
+    - assets/branding/sorteos_dominicanos_horizontal.png
+    - assets/branding/sorteos_dominicanos_horizontal_600.png
     - assets/branding/lotteries/
