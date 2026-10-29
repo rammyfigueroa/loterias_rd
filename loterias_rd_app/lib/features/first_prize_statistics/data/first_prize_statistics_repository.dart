@@ -2,9 +2,16 @@ import '../domain/first_prize_statistics.dart';
 import 'first_prize_statistics_remote_source.dart';
 
 abstract class FirstPrizeStatisticsRepository {
-  Future<IntervalRankingResponse> getIntervals(String coverage);
-  Future<IntervalDetail> getIntervalDetail(int days, String coverage);
-  Future<NumberStatisticsResponse> getNumbers();
+  Future<IntervalRankingResponse> getIntervals(
+    StatisticsDrawOption draw,
+    String coverage,
+  );
+  Future<IntervalDetail> getIntervalDetail(
+    StatisticsDrawOption draw,
+    int days,
+    String coverage,
+  );
+  Future<NumberStatisticsResponse> getNumbers(StatisticsDrawOption draw);
 }
 
 class RemoteFirstPrizeStatisticsRepository
@@ -14,13 +21,21 @@ class RemoteFirstPrizeStatisticsRepository
   const RemoteFirstPrizeStatisticsRepository(this.remoteSource);
 
   @override
-  Future<IntervalRankingResponse> getIntervals(String coverage) =>
-      remoteSource.getIntervals(coverage);
+  Future<IntervalRankingResponse> getIntervals(
+    StatisticsDrawOption draw,
+    String coverage,
+  ) =>
+      remoteSource.getIntervals(draw, coverage);
 
   @override
-  Future<IntervalDetail> getIntervalDetail(int days, String coverage) =>
-      remoteSource.getIntervalDetail(days, coverage);
+  Future<IntervalDetail> getIntervalDetail(
+    StatisticsDrawOption draw,
+    int days,
+    String coverage,
+  ) =>
+      remoteSource.getIntervalDetail(draw, days, coverage);
 
   @override
-  Future<NumberStatisticsResponse> getNumbers() => remoteSource.getNumbers();
+  Future<NumberStatisticsResponse> getNumbers(StatisticsDrawOption draw) =>
+      remoteSource.getNumbers(draw);
 }

@@ -14,8 +14,17 @@ enum CurrentNumberOrder {
 
 class FirstPrizeStatisticsController extends ChangeNotifier {
   final FirstPrizeStatisticsRepository repository;
+  final List<StatisticsDrawOption> draws;
 
-  FirstPrizeStatisticsController(this.repository);
+  FirstPrizeStatisticsController(
+    this.repository, {
+    List<StatisticsDrawOption> draws = StatisticsSeries.draws,
+  })  : draws = List.unmodifiable(draws),
+        selectedDraw = draws.firstWhere((draw) => draw.available);
+
+  StatisticsDrawOption selectedDraw;
+  int _intervalRequestId = 0;
+  int _numberRequestId = 0;
 
   StatisticsLoadState intervalState = StatisticsLoadState.loading;
   StatisticsLoadState numberState = StatisticsLoadState.loading;
@@ -32,15 +41,27 @@ class FirstPrizeStatisticsController extends ChangeNotifier {
 
   Future<void> loadIntervals([String? nextCoverage]) async {
     if (nextCoverage != null) coverage = nextCoverage;
+    final requestId = ++_intervalRequestId;
+    final requestedDraw = selectedDraw;
+    intervals = null;
     intervalState = StatisticsLoadState.loading;
     intervalError = null;
     notifyListeners();
     try {
-      intervals = await repository.getIntervals(coverage);
-      intervalState = intervals!.results.isEmpty
+      final response = await repository.getIntervals(requestedDraw, coverage);
+      if (requestId != _intervalRequestId ||
+          requestedDraw.drawId != selectedDraw.drawId) {
+        return;
+      }
+      intervals = response;
+      intervalState = response.results.isEmpty
           ? StatisticsLoadState.empty
           : StatisticsLoadState.data;
     } catch (error) {
+      if (requestId != _intervalRequestId ||
+          requestedDraw.drawId != selectedDraw.drawId) {
+        return;
+      }
       intervalError = error.toString();
       intervalState = StatisticsLoadState.error;
     }
@@ -48,19 +69,47 @@ class FirstPrizeStatisticsController extends ChangeNotifier {
   }
 
   Future<void> loadNumbers() async {
+    final requestId = ++_numberRequestId;
+    final requestedDraw = selectedDraw;
+    numbers = null;
     numberState = StatisticsLoadState.loading;
     numberError = null;
     notifyListeners();
     try {
-      numbers = await repository.getNumbers();
-      numberState = numbers!.results.isEmpty
+      final response = await repository.getNumbers(requestedDraw);
+      if (requestId != _numberRequestId ||
+          requestedDraw.drawId != selectedDraw.drawId) {
+        return;
+      }
+      numbers = response;
+      numberState = response.results.isEmpty
           ? StatisticsLoadState.empty
           : StatisticsLoadState.data;
     } catch (error) {
+      if (requestId != _numberRequestId ||
+          requestedDraw.drawId != selectedDraw.drawId) {
+        return;
+      }
       numberError = error.toString();
       numberState = StatisticsLoadState.error;
     }
     notifyListeners();
+  }
+
+  Future<void> selectDraw(StatisticsDrawOption draw) async {
+    if (!draw.available || draw.drawId == selectedDraw.drawId) return;
+    _intervalRequestId += 1;
+    _numberRequestId += 1;
+    selectedDraw = draw;
+    coverage = 'verified';
+    intervals = null;
+    numbers = null;
+    intervalError = null;
+    numberError = null;
+    intervalState = StatisticsLoadState.loading;
+    numberState = StatisticsLoadState.loading;
+    notifyListeners();
+    await load();
   }
 
   void setCurrentOrder(CurrentNumberOrder value) {

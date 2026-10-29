@@ -1,9 +1,40 @@
 class StatisticsSeries {
   static const operatorId = '6966a6d1ea7015c3b8a3d477';
-  static const drawId = '6966a6d1ea7015c3b8a3d482';
-  static const lotteryName = 'Lotería Nacional';
-  static const drawName = 'Gana Más';
+  static const operatorName = 'Nacional';
   static const prizeName = 'Primera posición';
+
+  static const national = StatisticsDrawOption(
+    operatorId: operatorId,
+    drawId: '6966a6d1ea7015c3b8a3d47c',
+    displayName: 'Lotería Nacional',
+    available: false,
+    unavailableReason: 'Historial pendiente de preparación',
+  );
+
+  static const ganaMas = StatisticsDrawOption(
+    operatorId: operatorId,
+    drawId: '6966a6d1ea7015c3b8a3d482',
+    displayName: 'Gana Más',
+    available: true,
+  );
+
+  static const draws = [national, ganaMas];
+}
+
+class StatisticsDrawOption {
+  final String operatorId;
+  final String drawId;
+  final String displayName;
+  final bool available;
+  final String? unavailableReason;
+
+  const StatisticsDrawOption({
+    required this.operatorId,
+    required this.drawId,
+    required this.displayName,
+    required this.available,
+    this.unavailableReason,
+  });
 }
 
 int _integer(Object? value) => value is num ? value.toInt() : 0;

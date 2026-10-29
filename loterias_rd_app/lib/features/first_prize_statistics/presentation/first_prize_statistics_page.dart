@@ -22,8 +22,14 @@ String statisticsDate(String? value) {
 class FirstPrizeStatisticsPage extends StatefulWidget {
   final FirstPrizeStatisticsRepository? repository;
   final DateTime? nowUtc;
+  final List<StatisticsDrawOption> draws;
 
-  const FirstPrizeStatisticsPage({super.key, this.repository, this.nowUtc});
+  const FirstPrizeStatisticsPage({
+    super.key,
+    this.repository,
+    this.nowUtc,
+    this.draws = StatisticsSeries.draws,
+  });
 
   @override
   State<FirstPrizeStatisticsPage> createState() =>
@@ -41,8 +47,10 @@ class _FirstPrizeStatisticsPageState extends State<FirstPrizeStatisticsPage> {
           FirstPrizeStatisticsRemoteSource(
               baseUrl: FirstPrizeStatisticsConfig.apiBaseUrl),
         );
-    controller = FirstPrizeStatisticsController(repository)
-      ..addListener(_refresh);
+    controller = FirstPrizeStatisticsController(
+      repository,
+      draws: widget.draws,
+    )..addListener(_refresh);
     controller.load();
   }
 
@@ -80,7 +88,7 @@ class _FirstPrizeStatisticsPageState extends State<FirstPrizeStatisticsPage> {
         ),
         body: Column(
           children: [
-            const _SeriesHeader(),
+            _SeriesHeader(controller: controller),
             Expanded(
               child: TabBarView(
                 children: [
@@ -99,7 +107,8 @@ class _FirstPrizeStatisticsPageState extends State<FirstPrizeStatisticsPage> {
 }
 
 class _SeriesHeader extends StatelessWidget {
-  const _SeriesHeader();
+  final FirstPrizeStatisticsController controller;
+  const _SeriesHeader({required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -107,27 +116,100 @@ class _SeriesHeader extends StatelessWidget {
       width: double.infinity,
       color: _blue,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Análisis histórico de apariciones en primer premio.',
             style: TextStyle(
                 color: Color(0xFFD9E8FF), fontWeight: FontWeight.w600),
           ),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
+          _DrawSelector(controller: controller),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
+              const _HeaderChip(
+                Icons.account_balance_outlined,
+                StatisticsSeries.operatorName,
+              ),
               _HeaderChip(
-                  Icons.account_balance_outlined, StatisticsSeries.lotteryName),
-              _HeaderChip(Icons.casino_outlined, StatisticsSeries.drawName),
-              _HeaderChip(Icons.looks_one_outlined, StatisticsSeries.prizeName),
+                Icons.casino_outlined,
+                controller.selectedDraw.displayName,
+              ),
+              const _HeaderChip(
+                Icons.looks_one_outlined,
+                StatisticsSeries.prizeName,
+              ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DrawSelector extends StatelessWidget {
+  final FirstPrizeStatisticsController controller;
+  const _DrawSelector({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final unavailable = controller.draws.where((draw) => !draw.available);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final draw in controller.draws)
+              ChoiceChip(
+                key: Key('draw-${draw.drawId}'),
+                avatar: Icon(
+                  draw.available ? Icons.casino_outlined : Icons.lock_outline,
+                  size: 17,
+                ),
+                label: Text(draw.displayName),
+                selected: draw.drawId == controller.selectedDraw.drawId,
+                onSelected: draw.available
+                    ? (selected) {
+                        if (selected) controller.selectDraw(draw);
+                      }
+                    : null,
+                selectedColor: Colors.white,
+                backgroundColor: Colors.white.withValues(alpha: .12),
+                disabledColor: Colors.white.withValues(alpha: .06),
+                labelStyle: TextStyle(
+                  color: draw.available ? _blue : const Color(0xFFBFD0EA),
+                  fontWeight: FontWeight.w800,
+                ),
+                side: BorderSide(
+                  color: draw.drawId == controller.selectedDraw.drawId
+                      ? Colors.white
+                      : Colors.white24,
+                ),
+              ),
+          ],
+        ),
+        if (unavailable.isNotEmpty) ...[
+          const SizedBox(height: 5),
+          Text(
+            unavailable
+                .map((draw) =>
+                    '${draw.displayName}: ${draw.unavailableReason ?? 'No disponible'}')
+                .join(' · '),
+            key: const Key('draw-unavailable-reason'),
+            style: const TextStyle(
+              color: Color(0xFFBFD0EA),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -201,6 +283,7 @@ class _CoincidencesTab extends StatelessWidget {
                       interval: controller.intervals!.results[index],
                       coverage: controller.coverage,
                       repository: controller.repository,
+                      draw: controller.selectedDraw,
                     ),
                   ),
               ],
@@ -223,12 +306,14 @@ class _IntervalCard extends StatelessWidget {
   final IntervalRanking interval;
   final String coverage;
   final FirstPrizeStatisticsRepository repository;
+  final StatisticsDrawOption draw;
 
   const _IntervalCard({
     required this.rank,
     required this.interval,
     required this.coverage,
     required this.repository,
+    required this.draw,
   });
 
   @override
@@ -242,6 +327,7 @@ class _IntervalCard extends StatelessWidget {
             days: interval.days,
             coverage: coverage,
             repository: repository,
+            draw: draw,
           ),
         )),
         child: Padding(
@@ -288,12 +374,14 @@ class IntervalDetailPage extends StatefulWidget {
   final int days;
   final String coverage;
   final FirstPrizeStatisticsRepository repository;
+  final StatisticsDrawOption draw;
 
   const IntervalDetailPage({
     super.key,
     required this.days,
     required this.coverage,
     required this.repository,
+    required this.draw,
   });
 
   @override
@@ -306,11 +394,20 @@ class _IntervalDetailPageState extends State<IntervalDetailPage> {
   @override
   void initState() {
     super.initState();
-    future = widget.repository.getIntervalDetail(widget.days, widget.coverage);
+    future = widget.repository.getIntervalDetail(
+      widget.draw,
+      widget.days,
+      widget.coverage,
+    );
   }
 
-  void retry() => setState(() => future =
-      widget.repository.getIntervalDetail(widget.days, widget.coverage));
+  void retry() => setState(() {
+        future = widget.repository.getIntervalDetail(
+          widget.draw,
+          widget.days,
+          widget.coverage,
+        );
+      });
 
   @override
   Widget build(BuildContext context) {

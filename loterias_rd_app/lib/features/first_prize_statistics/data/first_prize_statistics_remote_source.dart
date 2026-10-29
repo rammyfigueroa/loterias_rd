@@ -19,15 +19,19 @@ class FirstPrizeStatisticsRemoteSource {
   FirstPrizeStatisticsRemoteSource({required this.baseUrl, http.Client? client})
       : client = client ?? http.Client();
 
-  Uri _uri(String path, [Map<String, String> extra = const {}]) {
+  Uri _uri(
+    StatisticsDrawOption draw,
+    String path, [
+    Map<String, String> extra = const {},
+  ]) {
     if (baseUrl.trim().isEmpty) {
       throw const StatisticsApiException(
           'La API estadística de desarrollo no está configurada.');
     }
     return Uri.parse('${baseUrl.replaceFirst(RegExp(r'/$'), '')}$path').replace(
       queryParameters: {
-        'operatorId': StatisticsSeries.operatorId,
-        'drawId': StatisticsSeries.drawId,
+        'operatorId': draw.operatorId,
+        'drawId': draw.drawId,
         ...extra,
       },
     );
@@ -46,25 +50,39 @@ class FirstPrizeStatisticsRemoteSource {
     return Map<String, dynamic>.from(decoded);
   }
 
-  Future<IntervalRankingResponse> getIntervals(String coverage) async {
-    final json = await _get(_uri('/statistics/first-prize/intervals', {
+  Future<IntervalRankingResponse> getIntervals(
+    StatisticsDrawOption draw,
+    String coverage,
+  ) async {
+    final json = await _get(_uri(draw, '/statistics/first-prize/intervals', {
       'coverage': coverage,
       'limit': '100',
     }));
     return IntervalRankingResponse.fromJson(json);
   }
 
-  Future<IntervalDetail> getIntervalDetail(int days, String coverage) async {
-    final json = await _get(_uri('/statistics/first-prize/intervals/$days', {
-      'coverage': coverage,
-      'limit': '100',
-    }));
+  Future<IntervalDetail> getIntervalDetail(
+    StatisticsDrawOption draw,
+    int days,
+    String coverage,
+  ) async {
+    final json = await _get(_uri(
+      draw,
+      '/statistics/first-prize/intervals/$days',
+      {
+        'coverage': coverage,
+        'limit': '100',
+      },
+    ));
     return IntervalDetail.fromJson(json);
   }
 
-  Future<NumberStatisticsResponse> getNumbers() async {
-    final json =
-        await _get(_uri('/statistics/first-prize/numbers', {'limit': '100'}));
+  Future<NumberStatisticsResponse> getNumbers(
+    StatisticsDrawOption draw,
+  ) async {
+    final json = await _get(
+      _uri(draw, '/statistics/first-prize/numbers', {'limit': '100'}),
+    );
     return NumberStatisticsResponse.fromJson(json);
   }
 }
