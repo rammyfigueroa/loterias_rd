@@ -1,0 +1,754 @@
+import 'package:flutter/material.dart';
+
+import '../../results/application/lottery_catalog.dart';
+import '../application/first_prize_statistics_controller.dart';
+import '../data/first_prize_statistics_config.dart';
+import '../data/first_prize_statistics_remote_source.dart';
+import '../data/first_prize_statistics_repository.dart';
+import '../domain/first_prize_statistics.dart';
+
+const _blue = Color(0xFF003893);
+const _ink = Color(0xFF0F172A);
+const _muted = Color(0xFF64748B);
+const _background = Color(0xFFF4F7FB);
+const _warning = Color(0xFF9A6700);
+
+String statisticsDate(String? value) {
+  if (value == null || value.isEmpty) return 'No disponible';
+  final date = DateTime.tryParse(value);
+  return date == null ? value : formatCalendarDate(date);
+}
+
+class FirstPrizeStatisticsPage extends StatefulWidget {
+  final FirstPrizeStatisticsRepository? repository;
+  final DateTime? nowUtc;
+
+  const FirstPrizeStatisticsPage({super.key, this.repository, this.nowUtc});
+
+  @override
+  State<FirstPrizeStatisticsPage> createState() =>
+      _FirstPrizeStatisticsPageState();
+}
+
+class _FirstPrizeStatisticsPageState extends State<FirstPrizeStatisticsPage> {
+  late final FirstPrizeStatisticsController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final repository = widget.repository ??
+        RemoteFirstPrizeStatisticsRepository(
+          FirstPrizeStatisticsRemoteSource(
+              baseUrl: FirstPrizeStatisticsConfig.apiBaseUrl),
+        );
+    controller = FirstPrizeStatisticsController(repository)
+      ..addListener(_refresh);
+    controller.load();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    controller.removeListener(_refresh);
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: _background,
+        appBar: AppBar(
+          backgroundColor: _blue,
+          title: const Text('Coincidencias de Primera'),
+          bottom: const TabBar(
+            indicatorColor: Colors.white,
+            labelColor: Colors.white,
+            unselectedLabelColor: Color(0xFFBFD7FF),
+            isScrollable: true,
+            tabs: [
+              Tab(text: 'Coincidencias'),
+              Tab(text: 'Números'),
+              Tab(text: 'Situación actual'),
+            ],
+          ),
+        ),
+        body: Column(
+          children: [
+            const _SeriesHeader(),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _CoincidencesTab(controller: controller),
+                  _NumbersTab(controller: controller),
+                  _CurrentSituationTab(
+                      controller: controller, nowUtc: widget.nowUtc),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SeriesHeader extends StatelessWidget {
+  const _SeriesHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: _blue,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Análisis histórico de apariciones en primer premio.',
+            style: TextStyle(
+                color: Color(0xFFD9E8FF), fontWeight: FontWeight.w600),
+          ),
+          SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _HeaderChip(
+                  Icons.account_balance_outlined, StatisticsSeries.lotteryName),
+              _HeaderChip(Icons.casino_outlined, StatisticsSeries.drawName),
+              _HeaderChip(Icons.looks_one_outlined, StatisticsSeries.prizeName),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _HeaderChip(this.icon, this.label);
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(8)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: Colors.white, size: 17),
+          const SizedBox(width: 6),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.w700)),
+        ]),
+      );
+}
+
+class _CoincidencesTab extends StatelessWidget {
+  final FirstPrizeStatisticsController controller;
+  const _CoincidencesTab({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: controller.loadIntervals,
+      child: ListView(
+        key: const Key('coincidences-list'),
+        padding: const EdgeInsets.all(16),
+        children: [
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'verified', label: Text('Verificados')),
+              ButtonSegment(value: 'incomplete', label: Text('Incompletos')),
+              ButtonSegment(value: 'all', label: Text('Todos')),
+            ],
+            selected: {controller.coverage},
+            showSelectedIcon: false,
+            onSelectionChanged: (value) =>
+                controller.loadIntervals(value.first),
+          ),
+          if (controller.coverage != 'verified') ...[
+            const SizedBox(height: 12),
+            const _WarningCard(
+              text:
+                  'Algunos períodos contienen fechas sin verificar. Los intervalos podrían no representar apariciones consecutivas reales.',
+            ),
+          ],
+          const SizedBox(height: 14),
+          _StateBody(
+            state: controller.intervalState,
+            error: controller.intervalError,
+            onRetry: controller.loadIntervals,
+            emptyText: 'No hay intervalos para este filtro.',
+            child: Column(
+              children: [
+                for (var index = 0;
+                    index < (controller.intervals?.results.length ?? 0);
+                    index++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _IntervalCard(
+                      rank: index + 1,
+                      interval: controller.intervals!.results[index],
+                      coverage: controller.coverage,
+                      repository: controller.repository,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (controller.intervals != null) ...[
+            const SizedBox(height: 4),
+            _CoverageCard(controller.intervals!.quality),
+            const SizedBox(height: 12),
+            const _Disclaimer(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _IntervalCard extends StatelessWidget {
+  final int rank;
+  final IntervalRanking interval;
+  final String coverage;
+  final FirstPrizeStatisticsRepository repository;
+
+  const _IntervalCard({
+    required this.rank,
+    required this.interval,
+    required this.coverage,
+    required this.repository,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        key: Key('interval-${interval.days}'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => IntervalDetailPage(
+            days: interval.days,
+            coverage: coverage,
+            repository: repository,
+          ),
+        )),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(children: [
+            CircleAvatar(
+              backgroundColor: const Color(0xFFE7F0FF),
+              foregroundColor: _blue,
+              child: Text('$rank',
+                  style: const TextStyle(fontWeight: FontWeight.w900)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text('${interval.days} DÍAS',
+                      style: const TextStyle(
+                          color: _ink,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 4),
+                  Text(
+                      '${interval.distinctNumbers} números diferentes · ${interval.totalRepetitions} repeticiones',
+                      style: const TextStyle(
+                          color: _muted, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: interval.numbers
+                          .map((number) => _NumberBall(number))
+                          .toList()),
+                ])),
+            const Icon(Icons.chevron_right, color: _muted),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class IntervalDetailPage extends StatefulWidget {
+  final int days;
+  final String coverage;
+  final FirstPrizeStatisticsRepository repository;
+
+  const IntervalDetailPage({
+    super.key,
+    required this.days,
+    required this.coverage,
+    required this.repository,
+  });
+
+  @override
+  State<IntervalDetailPage> createState() => _IntervalDetailPageState();
+}
+
+class _IntervalDetailPageState extends State<IntervalDetailPage> {
+  late Future<IntervalDetail> future;
+
+  @override
+  void initState() {
+    super.initState();
+    future = widget.repository.getIntervalDetail(widget.days, widget.coverage);
+  }
+
+  void retry() => setState(() => future =
+      widget.repository.getIntervalDetail(widget.days, widget.coverage));
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _background,
+      appBar: AppBar(title: Text('${widget.days} días')),
+      body: FutureBuilder<IntervalDetail>(
+        future: future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting)
+            return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError) return _FullError(onRetry: retry);
+          final detail = snapshot.data!;
+          if (detail.occurrences.isEmpty)
+            return const Center(child: Text('No hay detalles disponibles.'));
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text(
+                  '${detail.distinctNumbers} números distintos · ${detail.totalRepetitions} repeticiones',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 14),
+              for (final item in detail.occurrences)
+                Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _NumberBall(item.number, large: true),
+                          const SizedBox(width: 14),
+                          Expanded(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                Text(
+                                    'Primera aparición: ${statisticsDate(item.startDate)}'),
+                                const SizedBox(height: 4),
+                                Text(
+                                    'Siguiente aparición: ${statisticsDate(item.endDate)}'),
+                                const SizedBox(height: 4),
+                                Text('Intervalo: ${item.days} días',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w800)),
+                                const SizedBox(height: 6),
+                                Text(
+                                    item.coverageStatus == 'VERIFIED'
+                                        ? 'Cobertura verificada'
+                                        : 'Cobertura incompleta',
+                                    style: TextStyle(
+                                        color: item.coverageStatus == 'VERIFIED'
+                                            ? const Color(0xFF15803D)
+                                            : _warning,
+                                        fontWeight: FontWeight.w800)),
+                              ])),
+                        ]),
+                  ),
+                ),
+              const _Disclaimer(),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _NumbersTab extends StatelessWidget {
+  final FirstPrizeStatisticsController controller;
+  const _NumbersTab({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return _StateBody(
+      state: controller.numberState,
+      error: controller.numberError,
+      onRetry: controller.loadNumbers,
+      emptyText: 'No hay estadísticas por número.',
+      child: GridView.builder(
+        key: const Key('numbers-grid'),
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 74,
+          mainAxisExtent: 58,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+        ),
+        itemCount: controller.numbers?.results.length ?? 0,
+        itemBuilder: (context, index) {
+          final item = controller.numbers!.results[index];
+          return InkWell(
+            key: Key('number-${item.number}'),
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              builder: (_) => _NumberDetailSheet(item),
+            ),
+            child: Ink(
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFDCE4EF))),
+              child: Center(
+                  child: Text(item.number,
+                      style: const TextStyle(
+                          color: _blue,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900))),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _NumberDetailSheet extends StatelessWidget {
+  final NumberStatistics item;
+  const _NumberDetailSheet(this.item);
+
+  String _days(num? value) => value == null
+      ? 'No disponible'
+      : '${value.toString().replaceFirst(RegExp(r'\.0$'), '')} días';
+
+  @override
+  Widget build(BuildContext context) {
+    final insufficient = item.sampleStatus == 'SINGLE_APPEARANCE';
+    final absent = item.sampleStatus == 'NO_APPEARANCES_OBSERVED';
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            20, 16, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+        child: SingleChildScrollView(
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              Row(children: [
+                _NumberBall(item.number, large: true),
+                const SizedBox(width: 12),
+                const Expanded(
+                    child: Text('Estadísticas individuales',
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.w900)))
+              ]),
+              const SizedBox(height: 16),
+              if (absent)
+                const _InfoMessage('Sin apariciones en el período disponible.')
+              else if (insufficient)
+                const _InfoMessage(
+                    'Historial insuficiente para calcular intervalos.')
+              else ...[
+                _MetricRow('Última aparición',
+                    statisticsDate(item.lastAppearanceDate)),
+                _MetricRow('Días desde última aparición',
+                    _days(item.daysSinceLastAppearance)),
+                _MetricRow('Apariciones', '${item.appearancesObserved}'),
+                _MetricRow('Intervalos', '${item.intervalsObserved}'),
+                _MetricRow('Intervalo mínimo', _days(item.minimumIntervalDays)),
+                _MetricRow('Intervalo máximo', _days(item.maximumIntervalDays)),
+                _MetricRow('Promedio', _days(item.averageIntervalDays)),
+                _MetricRow('Mediana', _days(item.medianIntervalDays)),
+                _MetricRow('Último intervalo', _days(item.latestIntervalDays)),
+              ],
+              const SizedBox(height: 12),
+              const _Disclaimer(),
+            ])),
+      ),
+    );
+  }
+}
+
+class _CurrentSituationTab extends StatelessWidget {
+  final FirstPrizeStatisticsController controller;
+  final DateTime? nowUtc;
+  const _CurrentSituationTab({required this.controller, required this.nowUtc});
+
+  @override
+  Widget build(BuildContext context) {
+    final response = controller.numbers;
+    final today = dominicanCalendarDate((nowUtc ?? DateTime.now()).toUtc());
+    final asOf = response == null ? null : DateTime.tryParse(response.asOfDate);
+    final staleDays = asOf == null
+        ? null
+        : today
+            .difference(DateTime.utc(asOf.year, asOf.month, asOf.day))
+            .inDays;
+    return _StateBody(
+      state: controller.numberState,
+      error: controller.numberError,
+      onRetry: controller.loadNumbers,
+      emptyText: 'No hay información de situación actual.',
+      child: ListView(
+        key: const Key('current-situation-list'),
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (staleDays != null && staleDays > 0)
+            _WarningCard(
+                text:
+                    'El historial está desactualizado por $staleDays día${staleDays == 1 ? '' : 's'}. Los valores se calculan hasta ${statisticsDate(response!.asOfDate)}.'),
+          if (staleDays != null && staleDays > 0) const SizedBox(height: 12),
+          Card(
+              child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Wrap(spacing: 18, runSpacing: 8, children: [
+                    Text(
+                        'Último historial: ${statisticsDate(response?.quality.lastAvailableDate)}'),
+                    Text(
+                        'Actualización: ${statisticsDate(response?.asOfDate)}'),
+                    Text('Hoy RD: ${formatCalendarDate(today)}'),
+                  ]))),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<CurrentNumberOrder>(
+            initialValue: controller.currentOrder,
+            decoration: const InputDecoration(
+                labelText: 'Ordenar por',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder()),
+            items: const [
+              DropdownMenuItem(
+                  value: CurrentNumberOrder.mostDays,
+                  child: Text('Más días sin aparecer')),
+              DropdownMenuItem(
+                  value: CurrentNumberOrder.leastDays,
+                  child: Text('Menos días sin aparecer')),
+              DropdownMenuItem(
+                  value: CurrentNumberOrder.numberAscending,
+                  child: Text('Número ascendente')),
+              DropdownMenuItem(
+                  value: CurrentNumberOrder.numberDescending,
+                  child: Text('Número descendente')),
+            ],
+            onChanged: (value) {
+              if (value != null) controller.setCurrentOrder(value);
+            },
+          ),
+          const SizedBox(height: 12),
+          for (final item in controller.orderedCurrentNumbers)
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: _NumberBall(item.number),
+                title: Text(
+                    item.daysSinceLastAppearance == null
+                        ? 'Sin apariciones registradas'
+                        : '${item.daysSinceLastAppearance} días',
+                    style: const TextStyle(fontWeight: FontWeight.w900)),
+                subtitle: Text(
+                    'Última aparición: ${statisticsDate(item.lastAppearanceDate)}'),
+              ),
+            ),
+          const _Disclaimer(),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoverageCard extends StatelessWidget {
+  final StatisticsQuality quality;
+  const _CoverageCard(this.quality);
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Cobertura histórica',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 10),
+            _MetricRow(
+                'Primera fecha', statisticsDate(quality.firstAvailableDate)),
+            _MetricRow(
+                'Última fecha', statisticsDate(quality.lastAvailableDate)),
+            _MetricRow('Resultados analizados', '${quality.resultsAnalyzed}'),
+            _MetricRow(
+                'Intervalos verificados', '${quality.verifiedIntervals}'),
+            _MetricRow('Intervalos incompletos',
+                '${quality.incompleteCoverageIntervals}'),
+            _MetricRow(
+                'Fechas no verificadas',
+                quality.unverifiedDates.isEmpty
+                    ? 'Ninguna'
+                    : quality.unverifiedDates
+                        .map((item) => statisticsDate(item.date))
+                        .join(', ')),
+          ]),
+        ),
+      );
+}
+
+class _StateBody extends StatelessWidget {
+  final StatisticsLoadState state;
+  final String? error;
+  final Future<void> Function() onRetry;
+  final String emptyText;
+  final Widget child;
+  const _StateBody(
+      {required this.state,
+      required this.error,
+      required this.onRetry,
+      required this.emptyText,
+      required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    switch (state) {
+      case StatisticsLoadState.loading:
+        return const Center(
+            child: Padding(
+                padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator()));
+      case StatisticsLoadState.empty:
+        return Center(
+            child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(emptyText, textAlign: TextAlign.center)));
+      case StatisticsLoadState.error:
+        return _FullError(onRetry: onRetry, message: error);
+      case StatisticsLoadState.data:
+        return child;
+    }
+  }
+}
+
+class _FullError extends StatelessWidget {
+  final VoidCallback onRetry;
+  final String? message;
+  const _FullError({required this.onRetry, this.message});
+
+  @override
+  Widget build(BuildContext context) => Center(
+          child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.cloud_off_outlined, size: 44, color: _blue),
+          const SizedBox(height: 12),
+          const Text('No pudimos cargar el análisis',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 6),
+          Text(message ?? 'Verifica la API de desarrollo.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: _muted)),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar')),
+        ]),
+      ));
+}
+
+class _WarningCard extends StatelessWidget {
+  final String text;
+  const _WarningCard({required this.text});
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+            color: const Color(0xFFFFF7D6),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFFFD66B))),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.warning_amber_rounded, color: _warning),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Text(text,
+                  style: const TextStyle(
+                      color: Color(0xFF6B4E00), fontWeight: FontWeight.w600)))
+        ]),
+      );
+}
+
+class _InfoMessage extends StatelessWidget {
+  final String text;
+  const _InfoMessage(this.text);
+  @override
+  Widget build(BuildContext context) => Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      color: const Color(0xFFE7F0FF),
+      child: Text(text,
+          style: const TextStyle(color: _blue, fontWeight: FontWeight.w700)));
+}
+
+class _MetricRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _MetricRow(this.label, this.value);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Text(label, style: const TextStyle(color: _muted))),
+          const SizedBox(width: 12),
+          Flexible(
+              child: Text(value,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                      color: _ink, fontWeight: FontWeight.w800)))
+        ]),
+      );
+}
+
+class _NumberBall extends StatelessWidget {
+  final String number;
+  final bool large;
+  const _NumberBall(this.number, {this.large = false});
+  @override
+  Widget build(BuildContext context) => Container(
+        width: large ? 52 : 38,
+        height: large ? 52 : 38,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(shape: BoxShape.circle, color: _blue),
+        child: Text(number,
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: large ? 19 : 14,
+                fontWeight: FontWeight.w900)),
+      );
+}
+
+class _Disclaimer extends StatelessWidget {
+  const _Disclaimer();
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+            'Este análisis describe resultados históricos y no predice resultados futuros.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: _muted, fontSize: 12, fontWeight: FontWeight.w600)),
+      );
+}

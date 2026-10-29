@@ -4,6 +4,8 @@ import '../../../data/lottery_results_remote_source.dart';
 import '../../../data/lottery_results_repository.dart';
 import '../../../data/sample_data.dart';
 import '../../../domain/lottery_result.dart';
+import '../../first_prize_statistics/data/first_prize_statistics_config.dart';
+import '../../first_prize_statistics/presentation/first_prize_statistics_page.dart';
 import '../application/lottery_catalog.dart';
 
 enum StatsMode { calientes, frios, veces }
@@ -776,6 +778,34 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
+  Widget _buildFirstPrizeStatisticsEntry() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
+      child: Card(
+        child: ListTile(
+          key: const Key('first-prize-statistics-entry'),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          leading: const CircleAvatar(
+            backgroundColor: Color(0xFFE7F0FF),
+            foregroundColor: Color(0xFF003893),
+            child: Icon(Icons.analytics_outlined),
+          ),
+          title: const Text(
+            'Coincidencias de Primera',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          subtitle:
+              const Text('Gana Más · análisis histórico de primer premio'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const FirstPrizeStatisticsPage()),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -818,6 +848,8 @@ class _StatsPageState extends State<StatsPage> {
             return Column(
               children: [
                 _buildHeader(),
+                if (FirstPrizeStatisticsConfig.available)
+                  _buildFirstPrizeStatisticsEntry(),
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
