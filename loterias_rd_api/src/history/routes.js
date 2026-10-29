@@ -148,7 +148,8 @@ export async function handleHistoryRequest(request, env) {
     if (url.pathname === '/internal/history/backfill' && request.method === 'POST') {
       if (!authorizeBackfill(request, env)) return historyJson({ error: 'Unauthorized.' }, 401);
       const maxRequests = parseLimit(url.searchParams.get('maxRequests'), 20, 50);
-      return historyJson(await runBackfillBatch(env, { maxRequests }));
+      const series = requireAuthorizedSeries(url.searchParams);
+      return historyJson(await runBackfillBatch(env, { maxRequests, series }));
     }
     return historyJson({ error: 'Historical route not found.' }, 404);
   } catch (error) {

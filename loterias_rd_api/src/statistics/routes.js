@@ -56,9 +56,9 @@ function intervalDaysFromPath(pathname) {
 
 async function intervalRanking(request, env) {
   const url = new URL(request.url);
-  requireAuthorizedSeries(url.searchParams);
+  const series = requireAuthorizedSeries(url.searchParams);
   const coverage = coverageFilter(url.searchParams);
-  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB);
+  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB, series);
   const ranking = coverage === 'verified'
     ? snapshot.verifiedRanking
     : coverage === 'incomplete'
@@ -76,9 +76,9 @@ async function intervalRanking(request, env) {
 
 async function intervalDetail(request, env, days) {
   const url = new URL(request.url);
-  requireAuthorizedSeries(url.searchParams);
+  const series = requireAuthorizedSeries(url.searchParams);
   const coverage = coverageFilter(url.searchParams);
-  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB);
+  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB, series);
   const matching = snapshot.intervals
     .filter((interval) => interval.days === days)
     .filter((interval) =>
@@ -104,8 +104,8 @@ async function intervalDetail(request, env, days) {
 
 async function numberStatistics(request, env) {
   const url = new URL(request.url);
-  requireAuthorizedSeries(url.searchParams);
-  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB);
+  const series = requireAuthorizedSeries(url.searchParams);
+  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB, series);
   return {
     operatorId: snapshot.operatorId,
     drawId: snapshot.drawId,

@@ -4,13 +4,17 @@ import test from 'node:test';
 import { coverageForMissingDate, runBackfillBatch } from '../src/history/backfill.js';
 import {
   DRAW_ID,
+  NATIONAL_DRAW_ID,
   OPERATOR_ID,
+  SERIES,
 } from '../src/history/constants.js';
 import {
   checksumForResult,
   extractGanaMasSession,
+  extractSeriesSession,
   fetchJsonWithRetry,
   identifyGanaMas,
+  identifyNational,
   ProviderError,
 } from '../src/history/provider.js';
 import { classifyResultChange } from '../src/history/repository.js';
@@ -36,6 +40,16 @@ function siteFixture() {
       company_id: OPERATOR_ID,
       company: { _id: OPERATOR_ID },
       siteGames: [{
+        title: 'Lotería Nacional',
+        game_id: NATIONAL_DRAW_ID,
+        game: {
+          _id: NATIONAL_DRAW_ID,
+          createdAt: '2026-01-13T20:10:57.975Z',
+          is_quiniela: true,
+          statistics: { positions: 3 },
+          score_layout: [[{ label: 'Bola 1' }, { label: 'Bola 2' }, { label: 'Bola 3' }]],
+        },
+      }, {
         title: 'Gana Más',
         game_id: DRAW_ID,
         game: {
@@ -49,6 +63,31 @@ function siteFixture() {
     }],
   };
 }
+
+test('identifies Lotería Nacional only through its independent structured ID', () => {
+  const identified = identifyNational(siteFixture());
+  assert.equal(identified.drawId, NATIONAL_DRAW_ID);
+  assert.equal(identified.drawName, 'Lotería Nacional');
+  assert.equal(identified.lowerBoundDate, '2026-01-13');
+});
+
+test('extracts National first prize without reading Gana Más sessions', () => {
+  const groups = [
+    ...sessionGroups('2026-10-28', '05'),
+    {
+      game_id: NATIONAL_DRAW_ID,
+      sessions: [{
+        _id: 'national-2026-10-28',
+        game_id: NATIONAL_DRAW_ID,
+        date: '2026-10-28T04:00:00.000Z',
+        score: [['87', '22', '10']],
+      }],
+    },
+  ];
+  const result = extractSeriesSession(groups, '2026-10-28', SERIES.national);
+  assert.equal(result.firstNumber, '87');
+  assert.equal(result.drawId, NATIONAL_DRAW_ID);
+});
 
 function sessionGroups(date = '2026-10-28', first = '05') {
   return [{
@@ -133,9 +172,13 @@ test('keeps reported holidays unverified without official evidence', () => {
 test('requires exact operator and draw filters', () => {
   assert.throws(() => requireAuthorizedSeries(new URLSearchParams()), ValidationError);
   assert.throws(() => requireAuthorizedSeries(new URLSearchParams({ operatorId: OPERATOR_ID, drawId: 'other' })), ValidationError);
-  assert.deepEqual(
-    requireAuthorizedSeries(new URLSearchParams({ operatorId: OPERATOR_ID, drawId: DRAW_ID })),
-    { operatorId: OPERATOR_ID, drawId: DRAW_ID },
+  assert.equal(
+    requireAuthorizedSeries(new URLSearchParams({ operatorId: OPERATOR_ID, drawId: DRAW_ID })).drawId,
+    DRAW_ID,
+  );
+  assert.equal(
+    requireAuthorizedSeries(new URLSearchParams({ operatorId: OPERATOR_ID, drawId: NATIONAL_DRAW_ID })).drawId,
+    NATIONAL_DRAW_ID,
   );
 });
 

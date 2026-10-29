@@ -1,18 +1,14 @@
-import {
-  DRAW_ID,
-  SANTO_DOMINGO_TIMEZONE,
-  UNVERIFIED_DATES,
-} from './constants.js';
+import { AUTHORIZED_SERIES, SERIES, SANTO_DOMINGO_TIMEZONE, UNVERIFIED_DATES_BY_DRAW } from './constants.js';
 import {
   checksumForResult,
-  fetchGanaMasForDate,
-  fetchGanaMasMetadata,
+  fetchSeriesForDate,
+  fetchSeriesMetadata,
 } from './provider.js';
 import { HistoryRepository } from './repository.js';
 import { currentDateInZone, previousIsoDate } from './validation.js';
 
-export function coverageForMissingDate(date) {
-  const detail = UNVERIFIED_DATES.get(date);
+export function coverageForMissingDate(date, series = SERIES.ganaMas) {
+  const detail = UNVERIFIED_DATES_BY_DRAW.get(series.drawId)?.get(date);
   if (detail) return { status: 'UNVERIFIED', detail };
   return { status: 'NO_RESULTS_RETURNED', detail: 'Provider returned no exact session for this date.' };
 }
@@ -23,11 +19,12 @@ export async function runBackfillBatch(
     maxRequests = 20,
     fetchOptions = {},
     now = new Date(),
-    repository = new HistoryRepository(env.HISTORY_DB),
+    series = SERIES.ganaMas,
+    repository = new HistoryRepository(env.HISTORY_DB, series),
   } = {},
 ) {
   const boundedMax = Math.max(1, Math.min(Number(maxRequests) || 20, 50));
-  const metadata = await fetchGanaMasMetadata(fetchOptions);
+  const metadata = await fetchSeriesMetadata(series, fetchOptions);
   await repository.ensureMetadata(metadata);
 
   let state = await repository.getBackfillState();
@@ -48,7 +45,7 @@ export async function runBackfillBatch(
   while (processed < boundedMax && cursor >= state.lower_bound_date) {
     await repository.recordCoverage({ date: cursor, status: 'PENDING' });
     try {
-      const response = await fetchGanaMasForDate(cursor, fetchOptions);
+      const response = await fetchSeriesForDate(series, cursor, fetchOptions);
       if (response.result) {
         response.result.checksum = await checksumForResult(response.result);
         const saved = await repository.saveResult(response.result);
@@ -62,7 +59,7 @@ export async function runBackfillBatch(
           detail: `Stored provider result ${response.result.providerResultId}.`,
         });
       } else {
-        const missing = coverageForMissingDate(cursor);
+        const missing = coverageForMissingDate(cursor, series);
         await repository.recordCoverage({
           date: cursor,
           status: missing.status,
@@ -118,37 +115,37 @@ export async function runBackfillBatch(
 }
 
 export async function runIncrementalUpdate(env, options = {}) {
-  const repository = options.repository || new HistoryRepository(env.HISTORY_DB);
+  const seriesList = options.seriesList || AUTHORIZED_SERIES;
   const today = currentDateInZone(SANTO_DOMINGO_TIMEZONE, options.now || new Date());
   const dates = [today, previousIsoDate(today), previousIsoDate(previousIsoDate(today))];
-  const metadata = await fetchGanaMasMetadata(options.fetchOptions || {});
-  await repository.ensureMetadata(metadata);
-
-  const summary = { drawId: DRAW_ID, checked: 0, inserted: 0, revisions: 0, unchanged: 0, failures: 0 };
-  for (const date of dates) {
-    try {
-      const response = await fetchGanaMasForDate(date, options.fetchOptions || {});
-      if (response.result) {
-        response.result.checksum = await checksumForResult(response.result);
-        const saved = await repository.saveResult(response.result);
-        if (saved.kind === 'INSERT') summary.inserted += 1;
-        if (saved.kind === 'REVISION') summary.revisions += 1;
-        if (saved.kind === 'UNCHANGED') summary.unchanged += 1;
-        await repository.recordCoverage({ date, status: 'RESULT_FOUND', attempts: response.attempts });
-      } else {
-        const missing = coverageForMissingDate(date);
-        await repository.recordCoverage({ date, ...missing, attempts: response.attempts });
+  const summaries = [];
+  for (const series of seriesList) {
+    const repository = options.repositoryFactory?.(series) || new HistoryRepository(env.HISTORY_DB, series);
+    const metadata = await fetchSeriesMetadata(series, options.fetchOptions || {});
+    await repository.ensureMetadata(metadata);
+    const summary = { drawId: series.drawId, checked: 0, inserted: 0, revisions: 0, unchanged: 0, failures: 0 };
+    for (const date of dates) {
+      try {
+        const response = await fetchSeriesForDate(series, date, options.fetchOptions || {});
+        if (response.result) {
+          response.result.checksum = await checksumForResult(response.result);
+          const saved = await repository.saveResult(response.result);
+          if (saved.kind === 'INSERT') summary.inserted += 1;
+          if (saved.kind === 'REVISION') summary.revisions += 1;
+          if (saved.kind === 'UNCHANGED') summary.unchanged += 1;
+          await repository.recordCoverage({ date, status: 'RESULT_FOUND', attempts: response.attempts });
+        } else {
+          const missing = coverageForMissingDate(date, series);
+          await repository.recordCoverage({ date, ...missing, attempts: response.attempts });
+        }
+      } catch (error) {
+        summary.failures += 1;
+        await repository.recordCoverage({ date, status: 'FETCH_FAILED', attempts: 1,
+          error: error instanceof Error ? error.message : String(error) });
       }
-    } catch (error) {
-      summary.failures += 1;
-      await repository.recordCoverage({
-        date,
-        status: 'FETCH_FAILED',
-        attempts: 1,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      summary.checked += 1;
     }
-    summary.checked += 1;
+    summaries.push(summary);
   }
-  return summary;
+  return { series: summaries };
 }

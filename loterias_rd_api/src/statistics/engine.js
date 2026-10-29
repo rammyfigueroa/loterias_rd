@@ -1,4 +1,4 @@
-import { DRAW_ID, OPERATOR_ID } from '../history/constants.js';
+import { SERIES } from '../history/constants.js';
 import { parseIsoDate } from '../history/validation.js';
 
 export const COVERAGE_POLICY = {
@@ -30,10 +30,10 @@ function eachCalendarDate(startDate, endDate) {
   return dates;
 }
 
-export function normalizeResults(results) {
+export function normalizeResults(results, series = SERIES.ganaMas) {
   const byDate = new Map();
   for (const row of results) {
-    if (row.operator_id !== OPERATOR_ID || row.draw_id !== DRAW_ID) {
+    if (row.operator_id !== series.operatorId || row.draw_id !== series.drawId) {
       throw new Error('Statistics input contains an unauthorized series.');
     }
     const date = parseIsoDate(row.draw_date, 'draw_date');
@@ -62,8 +62,8 @@ export function classifyIntervalCoverage(startDate, endDate, coverageByDate) {
   };
 }
 
-export function calculateConsecutiveIntervals(results, coverageRows) {
-  const normalized = normalizeResults(results);
+export function calculateConsecutiveIntervals(results, coverageRows, series = SERIES.ganaMas) {
+  const normalized = normalizeResults(results, series);
   const coverageByDate = new Map(
     coverageRows.map((row) => [row.coverage_date, row.status]),
   );
@@ -156,9 +156,9 @@ function numberStatistics(number, dates, intervals, asOfDate) {
   };
 }
 
-export function buildStatistics(results, coverageRows, asOfDate) {
+export function buildStatistics(results, coverageRows, asOfDate, series = SERIES.ganaMas) {
   parseIsoDate(asOfDate, 'asOfDate');
-  const calculated = calculateConsecutiveIntervals(results, coverageRows);
+  const calculated = calculateConsecutiveIntervals(results, coverageRows, series);
   const firstDate = calculated.normalizedResults[0]?.draw_date || null;
   const lastDate = calculated.normalizedResults.at(-1)?.draw_date || null;
   if (lastDate && asOfDate < lastDate) throw new Error('asOfDate must not precede the latest stored result.');
@@ -185,8 +185,8 @@ export function buildStatistics(results, coverageRows, asOfDate) {
     : [];
 
   return {
-    operatorId: OPERATOR_ID,
-    drawId: DRAW_ID,
+    operatorId: series.operatorId,
+    drawId: series.drawId,
     asOfDate,
     quality: {
       firstAvailableDate: firstDate,

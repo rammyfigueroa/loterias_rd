@@ -7,8 +7,7 @@ class StatisticsSeries {
     operatorId: operatorId,
     drawId: '6966a6d1ea7015c3b8a3d47c',
     displayName: 'Lotería Nacional',
-    available: false,
-    unavailableReason: 'Historial pendiente de preparación',
+    available: true,
   );
 
   static const ganaMas = StatisticsDrawOption(

@@ -20,7 +20,11 @@ class FirstPrizeStatisticsController extends ChangeNotifier {
     this.repository, {
     List<StatisticsDrawOption> draws = StatisticsSeries.draws,
   })  : draws = List.unmodifiable(draws),
-        selectedDraw = draws.firstWhere((draw) => draw.available);
+        selectedDraw = draws.firstWhere(
+          (draw) =>
+              draw.available && draw.drawId == StatisticsSeries.ganaMas.drawId,
+          orElse: () => draws.firstWhere((draw) => draw.available),
+        );
 
   StatisticsDrawOption selectedDraw;
   int _intervalRequestId = 0;

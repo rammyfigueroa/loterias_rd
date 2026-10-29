@@ -259,7 +259,7 @@ void main() {
         ]));
   });
 
-  testWidgets('shows one active draw and disables unprepared Nacional',
+  testWidgets('enables both independent draws and changes to Nacional',
       (tester) async {
     final repository = FakeStatisticsRepository();
     await tester.pumpWidget(MaterialApp(
@@ -272,11 +272,13 @@ void main() {
     final national = tester.widget<ChoiceChip>(
       find.byKey(Key('draw-${StatisticsSeries.national.drawId}')),
     );
-    expect(national.onSelected, isNull);
-    expect(find.textContaining('Historial pendiente de preparación'),
-        findsOneWidget);
-    expect(
-        repository.requestedDrawIds.toSet(), {StatisticsSeries.ganaMas.drawId});
+    expect(national.onSelected, isNotNull);
+    expect(find.byKey(const Key('draw-unavailable-reason')), findsNothing);
+    await tester
+        .tap(find.byKey(Key('draw-${StatisticsSeries.national.drawId}')));
+    await tester.pumpAndSettle();
+    expect(repository.requestedDrawIds,
+        contains(StatisticsSeries.national.drawId));
   });
 
   testWidgets('shows ranking, coverage filter and interval detail',

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { DRAW_ID, OPERATOR_ID, SANTO_DOMINGO_TIMEZONE } from '../src/history/constants.js';
+import { DRAW_ID, NATIONAL_DRAW_ID, OPERATOR_ID, SERIES, SANTO_DOMINGO_TIMEZONE } from '../src/history/constants.js';
 import { currentDateInZone, ValidationError } from '../src/history/validation.js';
 import {
   aggregateIntervals,
@@ -161,6 +161,20 @@ test('deduplicates identical stored dates and rejects conflicting duplicates', (
 test('rejects results from any other series', () => {
   const unauthorized = { ...result('2026-05-01', '10'), draw_id: 'other' };
   assert.throws(() => normalizeResults([unauthorized]), /unauthorized series/);
+});
+
+test('calculates National independently and rejects a mixed Gana Más row', () => {
+  const nationalRows = [
+    { ...result('2026-05-01', '10'), draw_id: NATIONAL_DRAW_ID },
+    { ...result('2026-05-05', '10'), draw_id: NATIONAL_DRAW_ID },
+  ];
+  const statistics = buildStatistics(nationalRows, coverage(1, 5), '2026-05-06', SERIES.national);
+  assert.equal(statistics.drawId, NATIONAL_DRAW_ID);
+  assert.equal(statistics.intervals[0].days, 4);
+  assert.throws(
+    () => buildStatistics([...nationalRows, result('2026-05-06', '10')], coverage(1, 6), '2026-05-06', SERIES.national),
+    /unauthorized series/,
+  );
 });
 
 test('uses the Dominican calendar when the UTC date already changed', () => {

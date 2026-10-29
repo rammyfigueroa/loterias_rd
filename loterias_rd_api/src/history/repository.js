@@ -1,4 +1,4 @@
-import { DRAW_ID, HISTORY_SOURCE, OPERATOR_ID } from './constants.js';
+import { HISTORY_SOURCE, SERIES } from './constants.js';
 
 export function classifyResultChange(existingByProvider, existingByDate, incoming) {
   const existing = existingByProvider || existingByDate;
@@ -8,9 +8,10 @@ export function classifyResultChange(existingByProvider, existingByDate, incomin
 }
 
 export class HistoryRepository {
-  constructor(db, now = () => new Date().toISOString()) {
+  constructor(db, series = SERIES.ganaMas, now = () => new Date().toISOString()) {
     if (!db) throw new Error('HISTORY_DB binding is required.');
     this.db = db;
+    this.series = series;
     this.now = now;
   }
 
@@ -25,7 +26,7 @@ export class HistoryRepository {
           source = excluded.source,
           source_site_id = excluded.source_site_id,
           updated_at = excluded.updated_at
-      `).bind(OPERATOR_ID, metadata.operatorName, HISTORY_SOURCE, metadata.sourceSiteId, timestamp),
+      `).bind(this.series.operatorId, metadata.operatorName, HISTORY_SOURCE, metadata.sourceSiteId, timestamp),
       this.db.prepare(`
         INSERT INTO draws (
           id, operator_id, name, first_position_path, number_min, number_max,
@@ -37,7 +38,7 @@ export class HistoryRepository {
           source_created_at = excluded.source_created_at,
           enabled = 1,
           updated_at = excluded.updated_at
-      `).bind(DRAW_ID, OPERATOR_ID, metadata.drawName, metadata.sourceCreatedAt, timestamp),
+      `).bind(this.series.drawId, this.series.operatorId, metadata.drawName, metadata.sourceCreatedAt, timestamp),
     ]);
   }
 
@@ -50,7 +51,7 @@ export class HistoryRepository {
   async getResultByDate(drawDate) {
     return this.db.prepare(
       'SELECT * FROM first_prize_results WHERE draw_id = ? AND draw_date = ? LIMIT 1',
-    ).bind(DRAW_ID, drawDate).first();
+    ).bind(this.series.drawId, drawDate).first();
   }
 
   async saveResult(incoming) {
@@ -154,8 +155,8 @@ export class HistoryRepository {
         last_error = excluded.last_error,
         checked_at = excluded.checked_at
     `).bind(
-      OPERATOR_ID,
-      DRAW_ID,
+      this.series.operatorId,
+      this.series.drawId,
       date,
       status,
       HISTORY_SOURCE,
@@ -168,7 +169,7 @@ export class HistoryRepository {
   }
 
   async getBackfillState() {
-    return this.db.prepare('SELECT * FROM backfill_state WHERE draw_id = ?').bind(DRAW_ID).first();
+    return this.db.prepare('SELECT * FROM backfill_state WHERE draw_id = ?').bind(this.series.drawId).first();
   }
 
   async initializeBackfill({ nextDate, lowerBoundDate }) {
@@ -178,7 +179,7 @@ export class HistoryRepository {
         draw_id, next_date, lower_bound_date, status, started_at, updated_at
       ) VALUES (?, ?, ?, 'READY', ?, ?)
       ON CONFLICT(draw_id) DO NOTHING
-    `).bind(DRAW_ID, nextDate, lowerBoundDate, timestamp, timestamp).run();
+    `).bind(this.series.drawId, nextDate, lowerBoundDate, timestamp, timestamp).run();
     return this.getBackfillState();
   }
 
@@ -201,7 +202,7 @@ export class HistoryRepository {
       timestamp,
       status,
       timestamp,
-      DRAW_ID,
+      this.series.drawId,
     ).run();
   }
 }

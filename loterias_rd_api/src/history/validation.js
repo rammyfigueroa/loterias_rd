@@ -1,4 +1,4 @@
-import { DRAW_ID, OPERATOR_ID } from './constants.js';
+import { seriesByIds } from './constants.js';
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -16,10 +16,9 @@ export function requireAuthorizedSeries(searchParams) {
   if (!operatorId || !drawId) {
     throw new ValidationError('operatorId and drawId are required.');
   }
-  if (operatorId !== OPERATOR_ID || drawId !== DRAW_ID) {
-    throw new ValidationError('Only Nacional / Gana Más is enabled in this phase.');
-  }
-  return { operatorId, drawId };
+  const series = seriesByIds(operatorId, drawId);
+  if (!series) throw new ValidationError('The requested operator and draw series is not enabled.');
+  return series;
 }
 
 export function parseIsoDate(value, fieldName) {
