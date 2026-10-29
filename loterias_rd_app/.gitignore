@@ -3,6 +3,7 @@
 .flutter-plugins-dependencies
 .packages
 build/
+validation/
 .wrangler/
 
 android/.gradle/

@@ -41,6 +41,7 @@ android {
 
     defaultConfig {
         applicationId = "com.sorteosdominicanos.app"
+        manifestPlaceholders["appLabel"] = "Sorteos Dominicanos"
         minSdk = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutter.versionCode
@@ -59,6 +60,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["appLabel"] = "Sorteos Dominicanos DEV"
+        }
         release {
             signingConfig = signingConfigs.getByName("release")
 
