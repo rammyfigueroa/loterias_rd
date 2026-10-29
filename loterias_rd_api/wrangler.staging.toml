@@ -1,0 +1,21 @@
+# Isolated historical staging configuration.
+# Keep the zero UUID until the dedicated staging D1 database is created.
+name = "sorteosdominicanos-history-staging"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+preview_urls = false
+
+[[d1_databases]]
+binding = "HISTORY_DB"
+database_name = "sorteosdominicanos-history-staging-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[vars]
+ENVIRONMENT = "staging"
+SOURCE_URL = "https://loteriasdominicanas.com/"
+CACHE_SECONDS = "180"
+
+# Intentionally no routes and no triggers. HISTORY_BACKFILL_TOKEN must be
+# configured as a Cloudflare secret after the isolated Worker is deployed.
