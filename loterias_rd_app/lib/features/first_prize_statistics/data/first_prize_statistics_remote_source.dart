@@ -54,10 +54,12 @@ class FirstPrizeStatisticsRemoteSource {
     StatisticsDrawOption draw,
     String coverage,
   ) async {
-    final json = await _get(_uri(draw, '/statistics/first-prize/intervals', {
-      'coverage': coverage,
-      'limit': '100',
-    }));
+    final json = await _getAllPages(
+      draw,
+      '/statistics/first-prize/intervals',
+      {'coverage': coverage},
+      resultKey: 'results',
+    );
     return IntervalRankingResponse.fromJson(json);
   }
 
@@ -66,23 +68,69 @@ class FirstPrizeStatisticsRemoteSource {
     int days,
     String coverage,
   ) async {
-    final json = await _get(_uri(
+    final json = await _getAllPages(
       draw,
       '/statistics/first-prize/intervals/$days',
-      {
-        'coverage': coverage,
-        'limit': '100',
-      },
-    ));
+      {'coverage': coverage},
+      resultKey: 'occurrences',
+    );
     return IntervalDetail.fromJson(json);
   }
 
   Future<NumberStatisticsResponse> getNumbers(
     StatisticsDrawOption draw,
   ) async {
-    final json = await _get(
-      _uri(draw, '/statistics/first-prize/numbers', {'limit': '100'}),
+    final json = await _getAllPages(
+      draw,
+      '/statistics/first-prize/numbers',
+      const {},
+      resultKey: 'results',
     );
     return NumberStatisticsResponse.fromJson(json);
   }
+
+  Future<Map<String, dynamic>> _getAllPages(
+    StatisticsDrawOption draw,
+    String path,
+    Map<String, String> parameters, {
+    required String resultKey,
+  }) async {
+    Map<String, dynamic>? firstPage;
+    final combined = <dynamic>[];
+    String? cursor;
+    do {
+      final page = await _get(_uri(draw, path, {
+        ...parameters,
+        'limit': '100',
+        if (cursor != null) 'cursor': cursor,
+      }));
+      firstPage ??= page;
+      final container = resultKey == 'occurrences'
+          ? Map<String, dynamic>.from(page[resultKey] as Map)
+          : page;
+      combined.addAll(container['results'] as List? ?? const []);
+      cursor = container['hasMore'] == true
+          ? _textCursor(container['nextCursor'])
+          : null;
+    } while (cursor != null);
+
+    final result = Map<String, dynamic>.from(firstPage);
+    if (resultKey == 'occurrences') {
+      final occurrences = Map<String, dynamic>.from(result[resultKey] as Map);
+      occurrences['results'] = combined;
+      occurrences['count'] = combined.length;
+      occurrences['hasMore'] = false;
+      occurrences['nextCursor'] = null;
+      result[resultKey] = occurrences;
+    } else {
+      result['results'] = combined;
+      result['count'] = combined.length;
+      result['hasMore'] = false;
+      result['nextCursor'] = null;
+    }
+    return result;
+  }
+
+  String? _textCursor(Object? value) =>
+      value is String && value.isNotEmpty ? value : null;
 }

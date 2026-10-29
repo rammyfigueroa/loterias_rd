@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../results/application/lottery_catalog.dart';
 import '../application/first_prize_statistics_controller.dart';
+import '../application/statistics_comparison.dart';
 import '../data/first_prize_statistics_config.dart';
 import '../data/first_prize_statistics_remote_source.dart';
 import '../data/first_prize_statistics_repository.dart';
@@ -137,7 +138,9 @@ class _SeriesHeader extends StatelessWidget {
               ),
               _HeaderChip(
                 Icons.casino_outlined,
-                controller.selectedDraw.displayName,
+                controller.mode == StatisticsMode.both
+                    ? 'Lotería Nacional + Gana Más'
+                    : controller.selectedDraw.displayName,
               ),
               const _HeaderChip(
                 Icons.looks_one_outlined,
@@ -165,29 +168,32 @@ class _DrawSelector extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final draw in controller.draws)
+            for (final option in const [
+              (StatisticsMode.national, 'Lotería Nacional'),
+              (StatisticsMode.ganaMas, 'Gana Más'),
+              (StatisticsMode.both, 'Ambas'),
+            ])
               ChoiceChip(
-                key: Key('draw-${draw.drawId}'),
+                key: Key('mode-${option.$1.name}'),
                 avatar: Icon(
-                  draw.available ? Icons.casino_outlined : Icons.lock_outline,
-                  size: 17,
-                ),
-                label: Text(draw.displayName),
-                selected: draw.drawId == controller.selectedDraw.drawId,
-                onSelected: draw.available
-                    ? (selected) {
-                        if (selected) controller.selectDraw(draw);
-                      }
-                    : null,
+                    option.$1 == StatisticsMode.both
+                        ? Icons.compare_arrows
+                        : Icons.casino_outlined,
+                    size: 17),
+                label: Text(option.$2),
+                selected: option.$1 == controller.mode,
+                onSelected: (selected) {
+                  if (selected) controller.selectMode(option.$1);
+                },
                 selectedColor: Colors.white,
                 backgroundColor: Colors.white.withValues(alpha: .12),
                 disabledColor: Colors.white.withValues(alpha: .06),
                 labelStyle: TextStyle(
-                  color: draw.available ? _blue : const Color(0xFFBFD0EA),
+                  color: _blue,
                   fontWeight: FontWeight.w800,
                 ),
                 side: BorderSide(
-                  color: draw.drawId == controller.selectedDraw.drawId
+                  color: option.$1 == controller.mode
                       ? Colors.white
                       : Colors.white24,
                 ),
@@ -271,25 +277,37 @@ class _CoincidencesTab extends StatelessWidget {
             error: controller.intervalError,
             onRetry: controller.loadIntervals,
             emptyText: 'No hay intervalos para este filtro.',
-            child: Column(
-              children: [
-                for (var index = 0;
-                    index < (controller.intervals?.results.length ?? 0);
-                    index++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _IntervalCard(
-                      rank: index + 1,
-                      interval: controller.intervals!.results[index],
-                      coverage: controller.coverage,
-                      repository: controller.repository,
-                      draw: controller.selectedDraw,
-                    ),
-                  ),
-              ],
-            ),
+            child: controller.mode == StatisticsMode.both
+                ? _CombinedCoincidences(controller: controller)
+                : Column(children: [
+                    for (var index = 0;
+                        index < (controller.intervals?.results.length ?? 0);
+                        index++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _IntervalCard(
+                          rank: index + 1,
+                          interval: controller.intervals!.results[index],
+                          coverage: controller.coverage,
+                          repository: controller.repository,
+                          draw: controller.selectedDraw,
+                        ),
+                      ),
+                  ]),
           ),
-          if (controller.intervals != null) ...[
+          if (controller.mode == StatisticsMode.both &&
+              controller.intervalsByDraw.length == 2) ...[
+            const SizedBox(height: 4),
+            _CoverageCard(
+                controller
+                    .intervalsByDraw[StatisticsSeries.national.drawId]!.quality,
+                title: 'Cobertura · Lotería Nacional'),
+            _CoverageCard(
+                controller
+                    .intervalsByDraw[StatisticsSeries.ganaMas.drawId]!.quality,
+                title: 'Cobertura · Gana Más'),
+            const _Disclaimer(),
+          ] else if (controller.intervals != null) ...[
             const SizedBox(height: 4),
             _CoverageCard(controller.intervals!.quality),
             const SizedBox(height: 12),
@@ -299,6 +317,126 @@ class _CoincidencesTab extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CombinedCoincidences extends StatefulWidget {
+  final FirstPrizeStatisticsController controller;
+  const _CombinedCoincidences({required this.controller});
+
+  @override
+  State<_CombinedCoincidences> createState() => _CombinedCoincidencesState();
+}
+
+class _CombinedCoincidencesState extends State<_CombinedCoincidences> {
+  bool shared = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    return Column(children: [
+      SegmentedButton<bool>(
+        segments: const [
+          ButtonSegment(value: false, label: Text('Ranking combinado')),
+          ButtonSegment(value: true, label: Text('Compartidas')),
+        ],
+        selected: {shared},
+        showSelectedIcon: false,
+        onSelectionChanged: (value) => setState(() => shared = value.first),
+      ),
+      const SizedBox(height: 12),
+      if (!shared)
+        for (var index = 0;
+            index < controller.combinedIntervals.length;
+            index++)
+          _CombinedIntervalCard(
+            rank: index + 1,
+            item: controller.combinedIntervals[index],
+            controller: controller,
+          )
+      else if (controller.sharedMatches.isEmpty)
+        const _InfoMessage('No hay coincidencias compartidas para este filtro.')
+      else
+        for (final item in controller.sharedMatches)
+          _SharedMatchCard(item: item, controller: controller),
+    ]);
+  }
+}
+
+class _CombinedIntervalCard extends StatelessWidget {
+  final int rank;
+  final CombinedIntervalRanking item;
+  final FirstPrizeStatisticsController controller;
+  const _CombinedIntervalCard(
+      {required this.rank, required this.item, required this.controller});
+
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: InkWell(
+          key: Key('combined-interval-${item.days}'),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => CombinedIntervalDetailPage(
+              days: item.days,
+              coverage: controller.coverage,
+              repository: controller.repository,
+            ),
+          )),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('$rank · ${item.days} DÍAS',
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 8),
+              _SeriesSummary('Lotería Nacional', item.national),
+              _SeriesSummary('Gana Más', item.ganaMas),
+              const Divider(),
+              Text(
+                  '${item.totalNumberDrawMatches} coincidencias por número y sorteo · ${item.totalRepetitions} repeticiones',
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
+            ]),
+          ),
+        ),
+      );
+}
+
+class _SeriesSummary extends StatelessWidget {
+  final String label;
+  final IntervalRanking? item;
+  const _SeriesSummary(this.label, this.item);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 5),
+        child: Text(
+            '$label: ${item?.distinctNumbers ?? 0} números · ${item?.totalRepetitions ?? 0} repeticiones'),
+      );
+}
+
+class _SharedMatchCard extends StatelessWidget {
+  final SharedIntervalMatch item;
+  final FirstPrizeStatisticsController controller;
+  const _SharedMatchCard({required this.item, required this.controller});
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: ListTile(
+          key: Key('shared-${item.days}'),
+          title: Text('${item.days} DÍAS · ${item.numbers.length} compartidos',
+              style: const TextStyle(fontWeight: FontWeight.w900)),
+          subtitle: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: item.numbers.map((n) => _NumberBall(n)).toList()),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => CombinedIntervalDetailPage(
+                days: item.days,
+                coverage: controller.coverage,
+                repository: controller.repository),
+          )),
+        ),
+      );
 }
 
 class _IntervalCard extends StatelessWidget {
@@ -386,6 +524,98 @@ class IntervalDetailPage extends StatefulWidget {
 
   @override
   State<IntervalDetailPage> createState() => _IntervalDetailPageState();
+}
+
+class CombinedIntervalDetailPage extends StatelessWidget {
+  final int days;
+  final String coverage;
+  final FirstPrizeStatisticsRepository repository;
+
+  const CombinedIntervalDetailPage({
+    super.key,
+    required this.days,
+    required this.coverage,
+    required this.repository,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final future = Future.wait([
+      repository.getIntervalDetail(StatisticsSeries.national, days, coverage),
+      repository.getIntervalDetail(StatisticsSeries.ganaMas, days, coverage),
+    ]);
+    return Scaffold(
+      backgroundColor: _background,
+      appBar: AppBar(title: Text('$days días · Ambas')),
+      body: FutureBuilder<List<IntervalDetail>>(
+        future: future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _FullError(
+              onRetry: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                    builder: (_) => CombinedIntervalDetailPage(
+                          days: days,
+                          coverage: coverage,
+                          repository: repository,
+                        )),
+              ),
+            );
+          }
+          final details = snapshot.data!;
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _SeriesDetailSection('Lotería Nacional', details[0]),
+              const SizedBox(height: 12),
+              _SeriesDetailSection('Gana Más', details[1]),
+              const SizedBox(height: 12),
+              const _Disclaimer(),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SeriesDetailSection extends StatelessWidget {
+  final String title;
+  final IntervalDetail detail;
+  const _SeriesDetailSection(this.title, this.detail);
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text(
+                '${detail.distinctNumbers} números · ${detail.totalRepetitions} repeticiones'),
+            const Divider(),
+            if (detail.occurrences.isEmpty)
+              const Text('Sin apariciones para este filtro.'),
+            for (final occurrence in detail.occurrences)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(children: [
+                  _NumberBall(occurrence.number),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: Text(
+                          '${statisticsDate(occurrence.startDate)} → ${statisticsDate(occurrence.endDate)}\n${occurrence.coverageStatus == 'VERIFIED' ? 'Verificado' : 'Cobertura incompleta'}')),
+                ]),
+              ),
+          ]),
+        ),
+      );
 }
 
 class _IntervalDetailPageState extends State<IntervalDetailPage> {
@@ -485,6 +715,10 @@ class _NumbersTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final combined = controller.mode == StatisticsMode.both;
+    final source = combined
+        ? controller.numbersFor(StatisticsSeries.national)
+        : controller.numbers;
     return _StateBody(
       state: controller.numberState,
       error: controller.numberError,
@@ -499,16 +733,26 @@ class _NumbersTab extends StatelessWidget {
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
-        itemCount: controller.numbers?.results.length ?? 0,
+        itemCount: source?.results.length ?? 0,
         itemBuilder: (context, index) {
-          final item = controller.numbers!.results[index];
+          final item = source!.results[index];
           return InkWell(
             key: Key('number-${item.number}'),
             borderRadius: BorderRadius.circular(8),
             onTap: () => showModalBottomSheet<void>(
               context: context,
               isScrollControlled: true,
-              builder: (_) => _NumberDetailSheet(item),
+              builder: (_) => combined
+                  ? _CombinedNumberDetailSheet(
+                      number: item.number,
+                      national: controller
+                          .numbersFor(StatisticsSeries.national)!
+                          .results[index],
+                      ganaMas: controller
+                          .numbersFor(StatisticsSeries.ganaMas)!
+                          .results[index],
+                    )
+                  : _NumberDetailSheet(item),
             ),
             child: Ink(
               decoration: BoxDecoration(
@@ -527,6 +771,61 @@ class _NumbersTab extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CombinedNumberDetailSheet extends StatelessWidget {
+  final String number;
+  final NumberStatistics national;
+  final NumberStatistics ganaMas;
+  const _CombinedNumberDetailSheet(
+      {required this.number, required this.national, required this.ganaMas});
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              _NumberBall(number, large: true),
+              const SizedBox(width: 12),
+              const Text('Comparación por número',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900))
+            ]),
+            const SizedBox(height: 16),
+            _NumberSeriesMetrics('Lotería Nacional', national),
+            _NumberSeriesMetrics('Gana Más', ganaMas),
+            const _Disclaimer(),
+          ]),
+        ),
+      );
+}
+
+class _NumberSeriesMetrics extends StatelessWidget {
+  final String title;
+  final NumberStatistics item;
+  const _NumberSeriesMetrics(this.title, this.item);
+  String value(num? number) => number == null
+      ? 'No disponible'
+      : '${number.toString().replaceFirst(RegExp(r'\.0$'), '')} días';
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+            const Divider(),
+            _MetricRow('Apariciones', '${item.appearancesObserved}'),
+            _MetricRow(
+                'Última aparición', statisticsDate(item.lastAppearanceDate)),
+            _MetricRow('Intervalos', '${item.intervalsObserved}'),
+            _MetricRow('Promedio', value(item.averageIntervalDays)),
+            _MetricRow('Mediana', value(item.medianIntervalDays)),
+          ]),
+        ),
+      );
 }
 
 class _NumberDetailSheet extends StatelessWidget {
@@ -592,6 +891,9 @@ class _CurrentSituationTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (controller.mode == StatisticsMode.both) {
+      return _CombinedCurrentSituation(controller: controller, nowUtc: nowUtc);
+    }
     final response = controller.numbers;
     final today = dominicanCalendarDate((nowUtc ?? DateTime.now()).toUtc());
     final asOf = response == null ? null : DateTime.tryParse(response.asOfDate);
@@ -672,9 +974,56 @@ class _CurrentSituationTab extends StatelessWidget {
   }
 }
 
+class _CombinedCurrentSituation extends StatelessWidget {
+  final FirstPrizeStatisticsController controller;
+  final DateTime? nowUtc;
+  const _CombinedCurrentSituation(
+      {required this.controller, required this.nowUtc});
+
+  @override
+  Widget build(BuildContext context) {
+    final national = controller.numbersFor(StatisticsSeries.national);
+    final ganaMas = controller.numbersFor(StatisticsSeries.ganaMas);
+    return _StateBody(
+      state: controller.numberState,
+      error: controller.numberError,
+      onRetry: controller.loadNumbers,
+      emptyText: 'No hay información de situación actual.',
+      child: ListView(
+        key: const Key('combined-current-situation-list'),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+              'Hoy RD: ${formatCalendarDate(dominicanCalendarDate((nowUtc ?? DateTime.now()).toUtc()))}',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 12),
+          for (var index = 0; index < (national?.results.length ?? 0); index++)
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: _NumberBall(national!.results[index].number),
+                title:
+                    Text('Nacional: ${_currentDays(national.results[index])}'),
+                subtitle:
+                    Text('Gana Más: ${_currentDays(ganaMas!.results[index])}'),
+              ),
+            ),
+          const _Disclaimer(),
+        ],
+      ),
+    );
+  }
+
+  static String _currentDays(NumberStatistics item) =>
+      item.daysSinceLastAppearance == null
+          ? 'sin apariciones'
+          : '${item.daysSinceLastAppearance} días sin aparecer';
+}
+
 class _CoverageCard extends StatelessWidget {
   final StatisticsQuality quality;
-  const _CoverageCard(this.quality);
+  final String title;
+  const _CoverageCard(this.quality, {this.title = 'Cobertura histórica'});
 
   @override
   Widget build(BuildContext context) => Card(
@@ -682,8 +1031,9 @@ class _CoverageCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Cobertura histórica',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
             const SizedBox(height: 10),
             _MetricRow(
                 'Primera fecha', statisticsDate(quality.firstAvailableDate)),

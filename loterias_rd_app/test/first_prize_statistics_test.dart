@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sorteosdominicanos_app/features/first_prize_statistics/application/first_prize_statistics_controller.dart';
+import 'package:sorteosdominicanos_app/features/first_prize_statistics/application/statistics_comparison.dart';
 import 'package:sorteosdominicanos_app/features/first_prize_statistics/data/first_prize_statistics_config.dart';
 import 'package:sorteosdominicanos_app/features/first_prize_statistics/data/first_prize_statistics_remote_source.dart';
 import 'package:sorteosdominicanos_app/features/first_prize_statistics/data/first_prize_statistics_repository.dart';
@@ -189,6 +190,54 @@ void main() {
     expect(controller.orderedCurrentNumbers.first.number, '99');
   });
 
+  test('combines rankings without treating repeated values as unique numbers',
+      () {
+    final response = IntervalRankingResponse.fromJson({
+      'quality': qualityJson,
+      'disclaimer': 'Histórico',
+      'results': [
+        {
+          'days': 11,
+          'distinctNumbers': 2,
+          'totalRepetitions': 3,
+          'numbers': ['03', '49']
+        }
+      ],
+    });
+    final combined =
+        const StatisticsComparison().combineRankings(response, response).single;
+    expect(combined.totalNumberDrawMatches, 4);
+    expect(combined.sharedNumbers, {'03', '49'});
+    expect(combined.totalRepetitions, 6);
+  });
+
+  test('requires the same number and interval for a shared coincidence', () {
+    IntervalRankingResponse response(int days, List<String> numbers) =>
+        IntervalRankingResponse.fromJson({
+          'quality': qualityJson,
+          'disclaimer': 'Histórico',
+          'results': [
+            {
+              'days': days,
+              'distinctNumbers': numbers.length,
+              'totalRepetitions': numbers.length,
+              'numbers': numbers
+            }
+          ],
+        });
+    final comparison = const StatisticsComparison();
+    expect(comparison.sharedMatches(response(10, ['27']), response(15, ['27'])),
+        isEmpty);
+    expect(comparison.sharedMatches(response(10, ['27']), response(10, ['31'])),
+        isEmpty);
+    expect(
+        comparison
+            .sharedMatches(response(10, ['27']), response(10, ['27']))
+            .single
+            .numbers,
+        ['27']);
+  });
+
   test('feature flag is disabled unless explicitly compiled in', () {
     expect(FirstPrizeStatisticsConfig.enabled, isFalse);
     expect(FirstPrizeStatisticsConfig.available, isFalse);
@@ -270,15 +319,53 @@ void main() {
     final chips = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip));
     expect(chips.where((chip) => chip.selected), hasLength(1));
     final national = tester.widget<ChoiceChip>(
-      find.byKey(Key('draw-${StatisticsSeries.national.drawId}')),
+      find.byKey(const Key('mode-national')),
     );
     expect(national.onSelected, isNotNull);
     expect(find.byKey(const Key('draw-unavailable-reason')), findsNothing);
-    await tester
-        .tap(find.byKey(Key('draw-${StatisticsSeries.national.drawId}')));
+    await tester.tap(find.byKey(const Key('mode-national')));
     await tester.pumpAndSettle();
     expect(repository.requestedDrawIds,
         contains(StatisticsSeries.national.drawId));
+  });
+
+  testWidgets('selects both series and renders combined and shared rankings',
+      (tester) async {
+    final repository = FakeStatisticsRepository();
+    await tester.pumpWidget(MaterialApp(
+      home: FirstPrizeStatisticsPage(repository: repository),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('mode-both')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('combined-interval-11')), findsOneWidget);
+    expect(find.textContaining('8 coincidencias por número y sorteo'),
+        findsOneWidget);
+    expect(repository.requestedDrawIds,
+        contains(StatisticsSeries.national.drawId));
+    expect(
+        repository.requestedDrawIds, contains(StatisticsSeries.ganaMas.drawId));
+
+    await tester.tap(find.text('Compartidas'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('shared-11')), findsOneWidget);
+  });
+
+  testWidgets('shows independent statistics for a number in both mode',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: FirstPrizeStatisticsPage(repository: FakeStatisticsRepository()),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('mode-both')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Números'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('number-27')));
+    await tester.pumpAndSettle();
+    expect(find.text('Lotería Nacional'), findsWidgets);
+    expect(find.text('Gana Más'), findsWidgets);
   });
 
   testWidgets('shows ranking, coverage filter and interval detail',

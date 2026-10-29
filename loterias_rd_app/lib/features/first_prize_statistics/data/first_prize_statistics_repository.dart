@@ -17,25 +17,36 @@ abstract class FirstPrizeStatisticsRepository {
 class RemoteFirstPrizeStatisticsRepository
     implements FirstPrizeStatisticsRepository {
   final FirstPrizeStatisticsRemoteSource remoteSource;
+  final Map<String, IntervalRankingResponse> _intervalCache = {};
+  final Map<String, IntervalDetail> _detailCache = {};
+  final Map<String, NumberStatisticsResponse> _numberCache = {};
 
-  const RemoteFirstPrizeStatisticsRepository(this.remoteSource);
+  RemoteFirstPrizeStatisticsRepository(this.remoteSource);
 
   @override
   Future<IntervalRankingResponse> getIntervals(
     StatisticsDrawOption draw,
     String coverage,
-  ) =>
-      remoteSource.getIntervals(draw, coverage);
+  ) async {
+    final key = '${draw.operatorId}:${draw.drawId}:intervals:$coverage';
+    return _intervalCache[key] ??=
+        await remoteSource.getIntervals(draw, coverage);
+  }
 
   @override
   Future<IntervalDetail> getIntervalDetail(
     StatisticsDrawOption draw,
     int days,
     String coverage,
-  ) =>
-      remoteSource.getIntervalDetail(draw, days, coverage);
+  ) async {
+    final key = '${draw.operatorId}:${draw.drawId}:detail:$days:$coverage';
+    return _detailCache[key] ??=
+        await remoteSource.getIntervalDetail(draw, days, coverage);
+  }
 
   @override
-  Future<NumberStatisticsResponse> getNumbers(StatisticsDrawOption draw) =>
-      remoteSource.getNumbers(draw);
+  Future<NumberStatisticsResponse> getNumbers(StatisticsDrawOption draw) async {
+    final key = '${draw.operatorId}:${draw.drawId}:numbers';
+    return _numberCache[key] ??= await remoteSource.getNumbers(draw);
+  }
 }
