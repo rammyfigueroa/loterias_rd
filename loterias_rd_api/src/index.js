@@ -1,4 +1,6 @@
 import { parseLotteryResults } from './parser.js';
+import { runIncrementalUpdate } from './history/backfill.js';
+import { handleHistoryRequest, isHistoryPath } from './history/routes.js';
 
 const DEFAULT_SOURCE_URL = 'https://loteriasdominicanas.com/';
 const DEFAULT_CACHE_SECONDS = 180;
@@ -11,6 +13,10 @@ export default {
       return new Response(null, { headers: corsHeaders() });
     }
 
+    if (isHistoryPath(url.pathname)) {
+      return handleHistoryRequest(request, env);
+    }
+
     if (url.pathname === '/health') {
       return json({ ok: true, service: 'loterias-rd-api' });
     }
@@ -20,6 +26,14 @@ export default {
     }
 
     return json({ error: 'Ruta no encontrada' }, { status: 404 });
+  },
+
+  async scheduled(_controller, env, ctx) {
+    if (!env.HISTORY_DB) {
+      console.warn('Historical update skipped because HISTORY_DB is not configured.');
+      return;
+    }
+    ctx.waitUntil(runIncrementalUpdate(env));
   },
 };
 

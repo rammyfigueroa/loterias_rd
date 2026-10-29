@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "db:migrate:local": "wrangler d1 migrations apply gana-mas-history-dev --local"
   },
   "devDependencies": {
     "wrangler": "latest"

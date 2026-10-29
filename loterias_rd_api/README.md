@@ -7,6 +7,8 @@ Backend en Cloudflare Workers para entregar resultados de loterias dominicanas e
 ```text
 GET /health
 GET /results
+GET /history?operatorId=...&drawId=...
+GET /history/coverage?operatorId=...&drawId=...
 ```
 
 Respuesta de `/results`:
@@ -44,6 +46,48 @@ Prueba local:
 curl http://localhost:8787/health
 curl http://localhost:8787/results
 ```
+
+## Historial local de Gana Más
+
+La infraestructura historica de esta fase acepta exclusivamente:
+
+```text
+operatorId=6966a6d1ea7015c3b8a3d477
+drawId=6966a6d1ea7015c3b8a3d482
+```
+
+Aplica las migraciones a D1 local:
+
+```bash
+npm run db:migrate:local
+```
+
+Inicia el Worker local con un token temporal que no debe guardarse en Git:
+
+```bash
+npx wrangler dev --local \
+  --var HISTORY_BACKFILL_TOKEN:un-token-local-temporal
+```
+
+Ejecuta el backfill en lotes reanudables de hasta 50 fechas:
+
+```bash
+curl -X POST \
+  'http://localhost:8787/internal/history/backfill?maxRequests=50' \
+  -H 'X-Backfill-Token: un-token-local-temporal'
+```
+
+Repite la peticion mientras `hasMore` sea `true`. El limite inferior se obtiene
+del `createdAt` estructurado de Gana Mas y el cursor queda almacenado en D1.
+
+Consulta el historial paginado:
+
+```bash
+curl 'http://localhost:8787/history?operatorId=6966a6d1ea7015c3b8a3d477&drawId=6966a6d1ea7015c3b8a3d482&limit=50&order=asc'
+```
+
+No hay un Cron Trigger configurado. El handler `scheduled` esta preparado para
+pruebas locales y una activacion futura expresamente autorizada.
 
 ## Publicar en Cloudflare
 

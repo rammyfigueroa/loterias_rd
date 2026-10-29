@@ -2,6 +2,12 @@ name = "loterias-rd-api"
 main = "src/index.js"
 compatibility_date = "2025-01-01"
 
+[[d1_databases]]
+binding = "HISTORY_DB"
+database_name = "gana-mas-history-dev"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
 [vars]
 SOURCE_URL = "https://loteriasdominicanas.com/"
 CACHE_SECONDS = "180"
