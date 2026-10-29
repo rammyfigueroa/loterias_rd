@@ -9,6 +9,9 @@ GET /health
 GET /results
 GET /history?operatorId=...&drawId=...
 GET /history/coverage?operatorId=...&drawId=...
+GET /statistics/first-prize/intervals?operatorId=...&drawId=...
+GET /statistics/first-prize/intervals/:days?operatorId=...&drawId=...
+GET /statistics/first-prize/numbers?operatorId=...&drawId=...
 ```
 
 Respuesta de `/results`:
@@ -88,6 +91,19 @@ curl 'http://localhost:8787/history?operatorId=6966a6d1ea7015c3b8a3d477&drawId=6
 
 No hay un Cron Trigger configurado. El handler `scheduled` esta preparado para
 pruebas locales y una activacion futura expresamente autorizada.
+
+## Estadisticas de intervalos
+
+El motor usa solamente los resultados guardados en D1. El ranking principal
+incluye intervalos con continuidad de cobertura verificada:
+
+```bash
+curl 'http://localhost:8787/statistics/first-prize/intervals?operatorId=6966a6d1ea7015c3b8a3d477&drawId=6966a6d1ea7015c3b8a3d482&coverage=verified&limit=10'
+```
+
+Los intervalos que cruzan cobertura incompleta se consultan por separado con
+`coverage=incomplete`. Los valores admitidos son `verified`, `incomplete` y
+`all`. Todos los endpoints son paginados y rechazan cualquier otra serie.
 
 ## Publicar en Cloudflare
 

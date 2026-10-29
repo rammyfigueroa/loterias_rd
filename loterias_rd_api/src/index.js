@@ -1,6 +1,7 @@
 import { parseLotteryResults } from './parser.js';
 import { runIncrementalUpdate } from './history/backfill.js';
 import { handleHistoryRequest, isHistoryPath } from './history/routes.js';
+import { handleStatisticsRequest, isStatisticsPath } from './statistics/routes.js';
 
 const DEFAULT_SOURCE_URL = 'https://loteriasdominicanas.com/';
 const DEFAULT_CACHE_SECONDS = 180;
@@ -15,6 +16,10 @@ export default {
 
     if (isHistoryPath(url.pathname)) {
       return handleHistoryRequest(request, env);
+    }
+
+    if (isStatisticsPath(url.pathname)) {
+      return handleStatisticsRequest(request, env);
     }
 
     if (url.pathname === '/health') {
