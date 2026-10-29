@@ -33,36 +33,51 @@ async function historyFingerprint(db, series, asOfDate) {
   });
 }
 
-export async function loadStatisticsSnapshot(db, series, { now = new Date() } = {}) {
+export async function loadStatisticsSnapshot(db, series, { now = new Date(), from = null, to = null } = {}) {
   if (!db) throw new Error('HISTORY_DB binding is required.');
   if (!series) throw new Error('An authorized series is required.');
   const asOfDate = currentDateInZone(SANTO_DOMINGO_TIMEZONE, now);
-  const key = `${series.operatorId}:${series.drawId}`;
+  const key = `${series.operatorId}:${series.drawId}:${from || '*'}:${to || '*'}`;
   const fingerprint = await historyFingerprint(db, series, asOfDate);
   const cached = cachedSnapshots.get(key);
   if (cached?.fingerprint === fingerprint) return cached.statistics;
 
-  const [resultQuery, coverageQuery] = await db.batch([
-    db.prepare(`
+  const resultSql = `
       SELECT provider_result_id, operator_id, draw_id, draw_date, first_number
       FROM first_prize_results
       WHERE operator_id = ? AND draw_id = ?
+      ${from ? 'AND draw_date >= ? AND draw_date <= ?' : ''}
       ORDER BY draw_date ASC, id ASC
-    `).bind(series.operatorId, series.drawId),
-    db.prepare(`
+    `;
+  const coverageSql = `
       SELECT coverage_date, status FROM coverage
       WHERE operator_id = ? AND draw_id = ?
+      ${from ? 'AND coverage_date >= ? AND coverage_date <= ?' : ''}
       ORDER BY coverage_date ASC
-    `).bind(series.operatorId, series.drawId),
+    `;
+  const bindings = from
+    ? [series.operatorId, series.drawId, from, to]
+    : [series.operatorId, series.drawId];
+  const [resultQuery, coverageQuery] = await db.batch([
+    db.prepare(`
+      ${resultSql}
+    `).bind(...bindings),
+    db.prepare(`${coverageSql}`).bind(...bindings),
   ]);
   const statistics = buildStatistics(
-    resultQuery.results || [], coverageQuery.results || [], asOfDate, series,
+    resultQuery.results || [], coverageQuery.results || [], to || asOfDate, series,
   );
+  statistics.range = { from, to, custom: Boolean(from) };
   cachedSnapshots.set(key, { fingerprint, statistics });
   return statistics;
 }
 
 export function clearStatisticsCache(series = null) {
   if (!series) cachedSnapshots.clear();
-  else cachedSnapshots.delete(`${series.operatorId}:${series.drawId}`);
+  else {
+    const prefix = `${series.operatorId}:${series.drawId}:`;
+    for (const key of cachedSnapshots.keys()) {
+      if (key.startsWith(prefix)) cachedSnapshots.delete(key);
+    }
+  }
 }

@@ -51,39 +51,37 @@ class FirstPrizeStatisticsRemoteSource {
   }
 
   Future<IntervalRankingResponse> getIntervals(
-    StatisticsDrawOption draw,
-    String coverage,
-  ) async {
+      StatisticsDrawOption draw, String coverage,
+      {StatisticsDateRange? range}) async {
     final json = await _getAllPages(
       draw,
       '/statistics/first-prize/intervals',
-      {'coverage': coverage},
+      {'coverage': coverage, ..._rangeParameters(range)},
       resultKey: 'results',
     );
     return IntervalRankingResponse.fromJson(json);
   }
 
   Future<IntervalDetail> getIntervalDetail(
-    StatisticsDrawOption draw,
-    int days,
-    String coverage,
-  ) async {
+      StatisticsDrawOption draw, int days, String coverage,
+      {StatisticsDateRange? range}) async {
     final json = await _getAllPages(
       draw,
       '/statistics/first-prize/intervals/$days',
-      {'coverage': coverage},
+      {'coverage': coverage, ..._rangeParameters(range)},
       resultKey: 'occurrences',
     );
     return IntervalDetail.fromJson(json);
   }
 
   Future<NumberStatisticsResponse> getNumbers(
-    StatisticsDrawOption draw,
-  ) async {
+    StatisticsDrawOption draw, {
+    StatisticsDateRange? range,
+  }) async {
     final json = await _getAllPages(
       draw,
       '/statistics/first-prize/numbers',
-      const {},
+      _rangeParameters(range),
       resultKey: 'results',
     );
     return NumberStatisticsResponse.fromJson(json);
@@ -133,4 +131,7 @@ class FirstPrizeStatisticsRemoteSource {
 
   String? _textCursor(Object? value) =>
       value is String && value.isNotEmpty ? value : null;
+
+  Map<String, String> _rangeParameters(StatisticsDateRange? range) =>
+      range == null ? const {} : {'from': range.fromIso, 'to': range.toIso};
 }

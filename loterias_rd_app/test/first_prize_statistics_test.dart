@@ -48,14 +48,15 @@ class FakeStatisticsRepository implements FirstPrizeStatisticsRepository {
   bool fail = false;
   int retries = 0;
   final requestedDrawIds = <String>[];
+  final requestedRanges = <StatisticsDateRange?>[];
 
   @override
   Future<IntervalRankingResponse> getIntervals(
-    StatisticsDrawOption draw,
-    String coverage,
-  ) async {
+      StatisticsDrawOption draw, String coverage,
+      {StatisticsDateRange? range}) async {
     retries += 1;
     requestedDrawIds.add(draw.drawId);
+    requestedRanges.add(range);
     if (fail) throw Exception('sin conexión');
     return IntervalRankingResponse.fromJson({
       'quality': qualityJson,
@@ -73,11 +74,10 @@ class FakeStatisticsRepository implements FirstPrizeStatisticsRepository {
 
   @override
   Future<IntervalDetail> getIntervalDetail(
-    StatisticsDrawOption draw,
-    int days,
-    String coverage,
-  ) async {
+      StatisticsDrawOption draw, int days, String coverage,
+      {StatisticsDateRange? range}) async {
     requestedDrawIds.add(draw.drawId);
+    requestedRanges.add(range);
     return IntervalDetail.fromJson({
       'days': days,
       'distinctNumbers': 1,
@@ -99,10 +99,10 @@ class FakeStatisticsRepository implements FirstPrizeStatisticsRepository {
   }
 
   @override
-  Future<NumberStatisticsResponse> getNumbers(
-    StatisticsDrawOption draw,
-  ) async {
+  Future<NumberStatisticsResponse> getNumbers(StatisticsDrawOption draw,
+      {StatisticsDateRange? range}) async {
     requestedDrawIds.add(draw.drawId);
+    requestedRanges.add(range);
     return NumberStatisticsResponse.fromJson({
       'asOfDate': '2026-10-28',
       'quality': qualityJson,
@@ -128,9 +128,8 @@ class DelayedStatisticsRepository extends FakeStatisticsRepository {
 
   @override
   Future<IntervalRankingResponse> getIntervals(
-    StatisticsDrawOption draw,
-    String coverage,
-  ) {
+      StatisticsDrawOption draw, String coverage,
+      {StatisticsDateRange? range}) {
     requestedDrawIds.add(draw.drawId);
     if (draw.drawId == StatisticsSeries.ganaMas.drawId) {
       return delayedGanaMas.future;
@@ -269,6 +268,54 @@ void main() {
     expect(requestedUri?.queryParameters['coverage'], 'verified');
   });
 
+  test('sends an applied date range to every paginated API request', () async {
+    final requested = <Uri>[];
+    final source = FirstPrizeStatisticsRemoteSource(
+      baseUrl: 'https://statistics.test',
+      client: MockClient((request) async {
+        requested.add(request.url);
+        return http.Response(
+            jsonEncode({
+              'quality': qualityJson,
+              'disclaimer': 'Histórico',
+              'asOfDate': '2026-06-30',
+              'results': [],
+              'count': 0,
+              'total': 0,
+              'hasMore': false,
+              'nextCursor': null,
+            }),
+            200);
+      }),
+    );
+    final range = StatisticsDateRange(
+      from: DateTime(2026, 5, 1),
+      to: DateTime(2026, 6, 30),
+    );
+    await source.getIntervals(StatisticsSeries.ganaMas, 'verified',
+        range: range);
+    expect(requested.single.queryParameters['from'], '2026-05-01');
+    expect(requested.single.queryParameters['to'], '2026-06-30');
+  });
+
+  test('applies valid dates and rejects ranges outside coverage', () async {
+    final repository = FakeStatisticsRepository();
+    final controller = FirstPrizeStatisticsController(repository);
+    await controller.load();
+    controller.setPendingFrom(DateTime(2026, 5, 1));
+    controller.setPendingTo(DateTime(2026, 6, 30));
+    await controller.applyPendingRange();
+    expect(controller.appliedRange?.fromIso, '2026-05-01');
+    expect(repository.requestedRanges.whereType<StatisticsDateRange>(),
+        isNotEmpty);
+
+    controller.setPendingFrom(DateTime(2026, 1, 1));
+    await controller.applyPendingRange();
+    expect(controller.rangeError, contains('cobertura'));
+    await controller.useFullHistory();
+    expect(controller.appliedRange, isNull);
+  });
+
   test('clears old data and ignores a late response after changing draw',
       () async {
     final repository = DelayedStatisticsRepository();
@@ -362,7 +409,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Números'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('number-27')));
+    await tester.tap(find.byKey(const Key('number-00')));
     await tester.pumpAndSettle();
     expect(find.text('Lotería Nacional'), findsWidgets);
     expect(find.text('Gana Más'), findsWidgets);
@@ -380,6 +427,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Primera aparición: 29/07/2026'), findsOneWidget);
     expect(find.text('Cobertura verificada'), findsOneWidget);
+  });
+
+  testWidgets('shows responsive date controls and applies full coverage',
+      (tester) async {
+    final repository = FakeStatisticsRepository();
+    await tester.pumpWidget(MaterialApp(
+      home: FirstPrizeStatisticsPage(repository: repository),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('date-from')), findsOneWidget);
+    expect(find.byKey(const Key('date-to')), findsOneWidget);
+    expect(find.text('Desde: 29/04/2026'), findsOneWidget);
+    expect(find.text('Hasta: 28/10/2026'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('apply-dates')));
+    await tester.pumpAndSettle();
+    expect(find.text('Rango personalizado activo'), findsOneWidget);
   });
 
   testWidgets('shows incomplete coverage warning', (tester) async {
@@ -407,12 +470,17 @@ void main() {
   });
 
   testWidgets('shows connection error and retries', (tester) async {
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final repository = FakeStatisticsRepository()..fail = true;
     await tester.pumpWidget(
         MaterialApp(home: FirstPrizeStatisticsPage(repository: repository)));
     await tester.pumpAndSettle();
     expect(find.text('No pudimos cargar el análisis'), findsOneWidget);
     repository.fail = false;
+    await tester.ensureVisible(find.text('Reintentar').first);
     await tester.tap(find.text('Reintentar').first);
     await tester.pumpAndSettle();
     expect(find.text('11 DÍAS'), findsOneWidget);

@@ -1,4 +1,5 @@
-import { parseLimit, requireAuthorizedSeries, ValidationError } from '../history/validation.js';
+import { currentDateInZone, parseDateRange, parseLimit, requireAuthorizedSeries, ValidationError } from '../history/validation.js';
+import { SANTO_DOMINGO_TIMEZONE } from '../history/constants.js';
 import { aggregateIntervals } from './engine.js';
 import { loadStatisticsSnapshot } from './service.js';
 
@@ -44,6 +45,11 @@ function coverageFilter(searchParams) {
   return value;
 }
 
+function snapshotOptions(searchParams) {
+  const today = currentDateInZone(SANTO_DOMINGO_TIMEZONE);
+  return parseDateRange(searchParams, today);
+}
+
 function intervalDaysFromPath(pathname) {
   const match = pathname.match(/^\/statistics\/first-prize\/intervals\/(\d+)$/);
   if (!match) return null;
@@ -58,7 +64,7 @@ async function intervalRanking(request, env) {
   const url = new URL(request.url);
   const series = requireAuthorizedSeries(url.searchParams);
   const coverage = coverageFilter(url.searchParams);
-  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB, series);
+  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB, series, snapshotOptions(url.searchParams));
   const ranking = coverage === 'verified'
     ? snapshot.verifiedRanking
     : coverage === 'incomplete'
@@ -68,6 +74,7 @@ async function intervalRanking(request, env) {
     operatorId: snapshot.operatorId,
     drawId: snapshot.drawId,
     coverage,
+    range: snapshot.range,
     quality: snapshot.quality,
     disclaimer: DISCLAIMER,
     ...paginate(ranking, url.searchParams),
@@ -78,7 +85,7 @@ async function intervalDetail(request, env, days) {
   const url = new URL(request.url);
   const series = requireAuthorizedSeries(url.searchParams);
   const coverage = coverageFilter(url.searchParams);
-  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB, series);
+  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB, series, snapshotOptions(url.searchParams));
   const matching = snapshot.intervals
     .filter((interval) => interval.days === days)
     .filter((interval) =>
@@ -93,6 +100,7 @@ async function intervalDetail(request, env, days) {
     drawId: snapshot.drawId,
     days,
     coverage,
+    range: snapshot.range,
     distinctNumbers: numbers.length,
     totalRepetitions: matching.length,
     numbers,
@@ -105,11 +113,12 @@ async function intervalDetail(request, env, days) {
 async function numberStatistics(request, env) {
   const url = new URL(request.url);
   const series = requireAuthorizedSeries(url.searchParams);
-  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB, series);
+  const snapshot = await loadStatisticsSnapshot(env.HISTORY_DB, series, snapshotOptions(url.searchParams));
   return {
     operatorId: snapshot.operatorId,
     drawId: snapshot.drawId,
     asOfDate: snapshot.asOfDate,
+    range: snapshot.range,
     quality: snapshot.quality,
     disclaimer: DISCLAIMER,
     ...paginate(snapshot.numbers, url.searchParams),

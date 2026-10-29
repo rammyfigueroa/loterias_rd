@@ -33,6 +33,21 @@ export function parseIsoDate(value, fieldName) {
   return value;
 }
 
+export function parseDateRange(searchParams, maximumDate = null) {
+  const from = parseIsoDate(searchParams.get('from'), 'from');
+  const to = parseIsoDate(searchParams.get('to'), 'to');
+  if ((from && !to) || (!from && to)) {
+    throw new ValidationError('from and to must be provided together.');
+  }
+  if (from && from > to) {
+    throw new ValidationError('from must not be after to.');
+  }
+  if (to && maximumDate && to > maximumDate) {
+    throw new ValidationError('to must not be in the future.');
+  }
+  return { from, to };
+}
+
 export function parseLimit(value, fallback = 50, maximum = 100) {
   if (value == null || value === '') return fallback;
   if (!/^\d+$/.test(value)) throw new ValidationError('limit must be an integer.');

@@ -45,6 +45,10 @@ class FirstPrizeStatisticsController extends ChangeNotifier {
   final Map<String, IntervalRankingResponse> intervalsByDraw = {};
   final Map<String, NumberStatisticsResponse> numbersByDraw = {};
   CurrentNumberOrder currentOrder = CurrentNumberOrder.mostDays;
+  StatisticsDateRange? appliedRange;
+  DateTime? pendingFrom;
+  DateTime? pendingTo;
+  String? rangeError;
 
   Future<void> load() async {
     await Future.wait([loadIntervals(), loadNumbers()]);
@@ -174,7 +178,8 @@ class FirstPrizeStatisticsController extends ChangeNotifier {
         : [selectedDraw];
     final values = await _loadEach(
       requestedDraws,
-      (draw) => repository.getIntervals(draw, requestedCoverage),
+      (draw) =>
+          repository.getIntervals(draw, requestedCoverage, range: appliedRange),
     );
     return {
       for (var i = 0; i < requestedDraws.length; i++)
@@ -187,7 +192,10 @@ class FirstPrizeStatisticsController extends ChangeNotifier {
     final requestedDraws = requestedMode == StatisticsMode.both
         ? const [StatisticsSeries.national, StatisticsSeries.ganaMas]
         : [selectedDraw];
-    final values = await _loadEach(requestedDraws, repository.getNumbers);
+    final values = await _loadEach(
+      requestedDraws,
+      (draw) => repository.getNumbers(draw, range: appliedRange),
+    );
     return {
       for (var i = 0; i < requestedDraws.length; i++)
         requestedDraws[i].drawId: values[i]
@@ -231,6 +239,78 @@ class FirstPrizeStatisticsController extends ChangeNotifier {
 
   NumberStatisticsResponse? numbersFor(StatisticsDrawOption draw) =>
       numbersByDraw[draw.drawId];
+
+  ({DateTime? first, DateTime? last}) get availableRange {
+    final qualities = mode == StatisticsMode.both
+        ? intervalsByDraw.values.map((value) => value.quality).toList()
+        : [if (intervals != null) intervals!.quality];
+    final firstDates = qualities
+        .map((quality) => DateTime.tryParse(quality.firstAvailableDate ?? ''))
+        .whereType<DateTime>()
+        .toList();
+    final lastDates = qualities
+        .map((quality) => DateTime.tryParse(quality.lastAvailableDate ?? ''))
+        .whereType<DateTime>()
+        .toList();
+    if (firstDates.isEmpty || lastDates.isEmpty)
+      return (first: null, last: null);
+    firstDates.sort();
+    lastDates.sort();
+    return (
+      first: mode == StatisticsMode.both ? firstDates.last : firstDates.first,
+      last: mode == StatisticsMode.both ? lastDates.first : lastDates.last,
+    );
+  }
+
+  void setPendingFrom(DateTime value) {
+    pendingFrom = DateTime(value.year, value.month, value.day);
+    rangeError = null;
+    notifyListeners();
+  }
+
+  void setPendingTo(DateTime value) {
+    pendingTo = DateTime(value.year, value.month, value.day);
+    rangeError = null;
+    notifyListeners();
+  }
+
+  Future<void> applyPendingRange() async {
+    final available = availableRange;
+    final from = pendingFrom ?? available.first;
+    final to = pendingTo ?? available.last;
+    if (from == null || to == null) {
+      rangeError = 'Selecciona las fechas Desde y Hasta.';
+    } else if (from.isAfter(to)) {
+      rangeError = 'Desde no puede ser posterior a Hasta.';
+    } else if ((available.first != null && from.isBefore(available.first!)) ||
+        (available.last != null && to.isAfter(available.last!))) {
+      rangeError = 'El rango debe estar dentro de la cobertura disponible.';
+    } else {
+      rangeError = null;
+      appliedRange = StatisticsDateRange(from: from, to: to);
+      _intervalRequestId += 1;
+      _numberRequestId += 1;
+      notifyListeners();
+      await load();
+      return;
+    }
+    notifyListeners();
+  }
+
+  Future<void> useFullHistory() async {
+    pendingFrom = null;
+    pendingTo = null;
+    rangeError = null;
+    if (appliedRange == null) {
+      notifyListeners();
+      return;
+    }
+    appliedRange = null;
+    _intervalRequestId += 1;
+    _numberRequestId += 1;
+    notifyListeners();
+    await load();
+  }
 
   void setCurrentOrder(CurrentNumberOrder value) {
     currentOrder = value;

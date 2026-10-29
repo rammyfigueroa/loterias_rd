@@ -3,15 +3,13 @@ import 'first_prize_statistics_remote_source.dart';
 
 abstract class FirstPrizeStatisticsRepository {
   Future<IntervalRankingResponse> getIntervals(
-    StatisticsDrawOption draw,
-    String coverage,
-  );
+      StatisticsDrawOption draw, String coverage,
+      {StatisticsDateRange? range});
   Future<IntervalDetail> getIntervalDetail(
-    StatisticsDrawOption draw,
-    int days,
-    String coverage,
-  );
-  Future<NumberStatisticsResponse> getNumbers(StatisticsDrawOption draw);
+      StatisticsDrawOption draw, int days, String coverage,
+      {StatisticsDateRange? range});
+  Future<NumberStatisticsResponse> getNumbers(StatisticsDrawOption draw,
+      {StatisticsDateRange? range});
 }
 
 class RemoteFirstPrizeStatisticsRepository
@@ -25,28 +23,30 @@ class RemoteFirstPrizeStatisticsRepository
 
   @override
   Future<IntervalRankingResponse> getIntervals(
-    StatisticsDrawOption draw,
-    String coverage,
-  ) async {
-    final key = '${draw.operatorId}:${draw.drawId}:intervals:$coverage';
+      StatisticsDrawOption draw, String coverage,
+      {StatisticsDateRange? range}) async {
+    final key =
+        '${draw.operatorId}:${draw.drawId}:intervals:$coverage:${range?.fromIso ?? '*'}:${range?.toIso ?? '*'}';
     return _intervalCache[key] ??=
-        await remoteSource.getIntervals(draw, coverage);
+        await remoteSource.getIntervals(draw, coverage, range: range);
   }
 
   @override
   Future<IntervalDetail> getIntervalDetail(
-    StatisticsDrawOption draw,
-    int days,
-    String coverage,
-  ) async {
-    final key = '${draw.operatorId}:${draw.drawId}:detail:$days:$coverage';
-    return _detailCache[key] ??=
-        await remoteSource.getIntervalDetail(draw, days, coverage);
+      StatisticsDrawOption draw, int days, String coverage,
+      {StatisticsDateRange? range}) async {
+    final key =
+        '${draw.operatorId}:${draw.drawId}:detail:$days:$coverage:${range?.fromIso ?? '*'}:${range?.toIso ?? '*'}';
+    return _detailCache[key] ??= await remoteSource
+        .getIntervalDetail(draw, days, coverage, range: range);
   }
 
   @override
-  Future<NumberStatisticsResponse> getNumbers(StatisticsDrawOption draw) async {
-    final key = '${draw.operatorId}:${draw.drawId}:numbers';
-    return _numberCache[key] ??= await remoteSource.getNumbers(draw);
+  Future<NumberStatisticsResponse> getNumbers(StatisticsDrawOption draw,
+      {StatisticsDateRange? range}) async {
+    final key =
+        '${draw.operatorId}:${draw.drawId}:numbers:${range?.fromIso ?? '*'}:${range?.toIso ?? '*'}';
+    return _numberCache[key] ??=
+        await remoteSource.getNumbers(draw, range: range);
   }
 }

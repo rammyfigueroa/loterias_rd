@@ -36,6 +36,19 @@ class StatisticsDrawOption {
   });
 }
 
+class StatisticsDateRange {
+  final DateTime from;
+  final DateTime to;
+
+  const StatisticsDateRange({required this.from, required this.to});
+
+  String get fromIso => _isoDate(from);
+  String get toIso => _isoDate(to);
+
+  static String _isoDate(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+}
+
 int _integer(Object? value) => value is num ? value.toInt() : 0;
 double? _decimal(Object? value) => value is num ? value.toDouble() : null;
 String? _text(Object? value) =>

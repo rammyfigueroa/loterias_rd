@@ -128,6 +128,8 @@ class _SeriesHeader extends StatelessWidget {
           const SizedBox(height: 10),
           _DrawSelector(controller: controller),
           const SizedBox(height: 10),
+          _DateRangeSelector(controller: controller),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -152,6 +154,134 @@ class _SeriesHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DateRangeSelector extends StatelessWidget {
+  final FirstPrizeStatisticsController controller;
+  const _DateRangeSelector({required this.controller});
+
+  Future<void> _pick(BuildContext context, bool from) async {
+    final available = controller.availableRange;
+    if (available.first == null || available.last == null) return;
+    final current = from
+        ? controller.pendingFrom ??
+            controller.appliedRange?.from ??
+            available.first!
+        : controller.pendingTo ??
+            controller.appliedRange?.to ??
+            available.last!;
+    final selected = await showDatePicker(
+      context: context,
+      locale: const Locale('es'),
+      initialDate: current.isBefore(available.first!)
+          ? available.first!
+          : current.isAfter(available.last!)
+              ? available.last!
+              : current,
+      firstDate: available.first!,
+      lastDate: available.last!,
+      helpText: from ? 'Seleccionar fecha desde' : 'Seleccionar fecha hasta',
+    );
+    if (selected != null) {
+      from
+          ? controller.setPendingFrom(selected)
+          : controller.setPendingTo(selected);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final available = controller.availableRange;
+    final from = controller.pendingFrom ??
+        controller.appliedRange?.from ??
+        available.first;
+    final to =
+        controller.pendingTo ?? controller.appliedRange?.to ?? available.last;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(8)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Período de análisis',
+            style: TextStyle(color: _ink, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        LayoutBuilder(builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 360;
+          final controls = [
+            _DateButton(
+                key: const Key('date-from'),
+                label: 'Desde',
+                date: from,
+                onTap: () => _pick(context, true)),
+            _DateButton(
+                key: const Key('date-to'),
+                label: 'Hasta',
+                date: to,
+                onTap: () => _pick(context, false)),
+          ];
+          return narrow
+              ? Column(children: [
+                  controls[0],
+                  const SizedBox(height: 8),
+                  controls[1]
+                ])
+              : Row(children: [
+                  Expanded(child: controls[0]),
+                  const SizedBox(width: 8),
+                  Expanded(child: controls[1])
+                ]);
+        }),
+        if (controller.rangeError != null) ...[
+          const SizedBox(height: 8),
+          Text(controller.rangeError!,
+              key: const Key('range-error'),
+              style: const TextStyle(
+                  color: Colors.red, fontWeight: FontWeight.w700)),
+        ],
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          OutlinedButton.icon(
+            key: const Key('full-history'),
+            onPressed: controller.useFullHistory,
+            icon: const Icon(Icons.history),
+            label: const Text('Todo el historial'),
+          ),
+          FilledButton.icon(
+            key: const Key('apply-dates'),
+            onPressed:
+                available.first == null ? null : controller.applyPendingRange,
+            icon: const Icon(Icons.check),
+            label: const Text('Aplicar fechas'),
+          ),
+        ]),
+        if (controller.appliedRange != null)
+          const Text('Rango personalizado activo',
+              style: TextStyle(
+                  color: Color(0xFF15803D), fontWeight: FontWeight.w800)),
+      ]),
+    );
+  }
+}
+
+class _DateButton extends StatelessWidget {
+  final String label;
+  final DateTime? date;
+  final VoidCallback onTap;
+  const _DateButton(
+      {super.key,
+      required this.label,
+      required this.date,
+      required this.onTap});
+  @override
+  Widget build(BuildContext context) => OutlinedButton.icon(
+        onPressed: date == null ? null : onTap,
+        icon: const Icon(Icons.calendar_month_outlined),
+        label: Text(
+            '$label: ${date == null ? 'Cargando…' : formatCalendarDate(date!)}'),
+        style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 48), alignment: Alignment.centerLeft),
+      );
 }
 
 class _DrawSelector extends StatelessWidget {
@@ -291,6 +421,7 @@ class _CoincidencesTab extends StatelessWidget {
                           coverage: controller.coverage,
                           repository: controller.repository,
                           draw: controller.selectedDraw,
+                          range: controller.appliedRange,
                         ),
                       ),
                   ]),
@@ -379,6 +510,7 @@ class _CombinedIntervalCard extends StatelessWidget {
               days: item.days,
               coverage: controller.coverage,
               repository: controller.repository,
+              range: controller.appliedRange,
             ),
           )),
           child: Padding(
@@ -433,7 +565,8 @@ class _SharedMatchCard extends StatelessWidget {
             builder: (_) => CombinedIntervalDetailPage(
                 days: item.days,
                 coverage: controller.coverage,
-                repository: controller.repository),
+                repository: controller.repository,
+                range: controller.appliedRange),
           )),
         ),
       );
@@ -445,6 +578,7 @@ class _IntervalCard extends StatelessWidget {
   final String coverage;
   final FirstPrizeStatisticsRepository repository;
   final StatisticsDrawOption draw;
+  final StatisticsDateRange? range;
 
   const _IntervalCard({
     required this.rank,
@@ -452,6 +586,7 @@ class _IntervalCard extends StatelessWidget {
     required this.coverage,
     required this.repository,
     required this.draw,
+    this.range,
   });
 
   @override
@@ -466,6 +601,7 @@ class _IntervalCard extends StatelessWidget {
             coverage: coverage,
             repository: repository,
             draw: draw,
+            range: range,
           ),
         )),
         child: Padding(
@@ -513,6 +649,7 @@ class IntervalDetailPage extends StatefulWidget {
   final String coverage;
   final FirstPrizeStatisticsRepository repository;
   final StatisticsDrawOption draw;
+  final StatisticsDateRange? range;
 
   const IntervalDetailPage({
     super.key,
@@ -520,6 +657,7 @@ class IntervalDetailPage extends StatefulWidget {
     required this.coverage,
     required this.repository,
     required this.draw,
+    this.range,
   });
 
   @override
@@ -530,19 +668,23 @@ class CombinedIntervalDetailPage extends StatelessWidget {
   final int days;
   final String coverage;
   final FirstPrizeStatisticsRepository repository;
+  final StatisticsDateRange? range;
 
   const CombinedIntervalDetailPage({
     super.key,
     required this.days,
     required this.coverage,
     required this.repository,
+    this.range,
   });
 
   @override
   Widget build(BuildContext context) {
     final future = Future.wait([
-      repository.getIntervalDetail(StatisticsSeries.national, days, coverage),
-      repository.getIntervalDetail(StatisticsSeries.ganaMas, days, coverage),
+      repository.getIntervalDetail(StatisticsSeries.national, days, coverage,
+          range: range),
+      repository.getIntervalDetail(StatisticsSeries.ganaMas, days, coverage,
+          range: range),
     ]);
     return Scaffold(
       backgroundColor: _background,
@@ -561,6 +703,7 @@ class CombinedIntervalDetailPage extends StatelessWidget {
                           days: days,
                           coverage: coverage,
                           repository: repository,
+                          range: range,
                         )),
               ),
             );
@@ -628,6 +771,7 @@ class _IntervalDetailPageState extends State<IntervalDetailPage> {
       widget.draw,
       widget.days,
       widget.coverage,
+      range: widget.range,
     );
   }
 
@@ -636,6 +780,7 @@ class _IntervalDetailPageState extends State<IntervalDetailPage> {
           widget.draw,
           widget.days,
           widget.coverage,
+          range: widget.range,
         );
       });
 
@@ -751,8 +896,10 @@ class _NumbersTab extends StatelessWidget {
                       ganaMas: controller
                           .numbersFor(StatisticsSeries.ganaMas)!
                           .results[index],
+                      customRange: controller.appliedRange != null,
                     )
-                  : _NumberDetailSheet(item),
+                  : _NumberDetailSheet(item,
+                      customRange: controller.appliedRange != null),
             ),
             child: Ink(
               decoration: BoxDecoration(
@@ -777,8 +924,12 @@ class _CombinedNumberDetailSheet extends StatelessWidget {
   final String number;
   final NumberStatistics national;
   final NumberStatistics ganaMas;
+  final bool customRange;
   const _CombinedNumberDetailSheet(
-      {required this.number, required this.national, required this.ganaMas});
+      {required this.number,
+      required this.national,
+      required this.ganaMas,
+      required this.customRange});
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -793,8 +944,9 @@ class _CombinedNumberDetailSheet extends StatelessWidget {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900))
             ]),
             const SizedBox(height: 16),
-            _NumberSeriesMetrics('Lotería Nacional', national),
-            _NumberSeriesMetrics('Gana Más', ganaMas),
+            _NumberSeriesMetrics('Lotería Nacional', national,
+                customRange: customRange),
+            _NumberSeriesMetrics('Gana Más', ganaMas, customRange: customRange),
             const _Disclaimer(),
           ]),
         ),
@@ -804,7 +956,9 @@ class _CombinedNumberDetailSheet extends StatelessWidget {
 class _NumberSeriesMetrics extends StatelessWidget {
   final String title;
   final NumberStatistics item;
-  const _NumberSeriesMetrics(this.title, this.item);
+  final bool customRange;
+  const _NumberSeriesMetrics(this.title, this.item,
+      {required this.customRange});
   String value(num? number) => number == null
       ? 'No disponible'
       : '${number.toString().replaceFirst(RegExp(r'\.0$'), '')} días';
@@ -819,7 +973,10 @@ class _NumberSeriesMetrics extends StatelessWidget {
             const Divider(),
             _MetricRow('Apariciones', '${item.appearancesObserved}'),
             _MetricRow(
-                'Última aparición', statisticsDate(item.lastAppearanceDate)),
+                customRange
+                    ? 'Última aparición dentro del período'
+                    : 'Última aparición',
+                statisticsDate(item.lastAppearanceDate)),
             _MetricRow('Intervalos', '${item.intervalsObserved}'),
             _MetricRow('Promedio', value(item.averageIntervalDays)),
             _MetricRow('Mediana', value(item.medianIntervalDays)),
@@ -830,7 +987,8 @@ class _NumberSeriesMetrics extends StatelessWidget {
 
 class _NumberDetailSheet extends StatelessWidget {
   final NumberStatistics item;
-  const _NumberDetailSheet(this.item);
+  final bool customRange;
+  const _NumberDetailSheet(this.item, {required this.customRange});
 
   String _days(num? value) => value == null
       ? 'No disponible'
@@ -864,9 +1022,15 @@ class _NumberDetailSheet extends StatelessWidget {
                 const _InfoMessage(
                     'Historial insuficiente para calcular intervalos.')
               else ...[
-                _MetricRow('Última aparición',
+                _MetricRow(
+                    customRange
+                        ? 'Última aparición dentro del período'
+                        : 'Última aparición',
                     statisticsDate(item.lastAppearanceDate)),
-                _MetricRow('Días desde última aparición',
+                _MetricRow(
+                    customRange
+                        ? 'Días hasta el final del período'
+                        : 'Días desde última aparición',
                     _days(item.daysSinceLastAppearance)),
                 _MetricRow('Apariciones', '${item.appearancesObserved}'),
                 _MetricRow('Intervalos', '${item.intervalsObserved}'),
@@ -902,6 +1066,7 @@ class _CurrentSituationTab extends StatelessWidget {
         : today
             .difference(DateTime.utc(asOf.year, asOf.month, asOf.day))
             .inDays;
+    final customRange = controller.appliedRange != null;
     return _StateBody(
       state: controller.numberState,
       error: controller.numberError,
@@ -911,11 +1076,12 @@ class _CurrentSituationTab extends StatelessWidget {
         key: const Key('current-situation-list'),
         padding: const EdgeInsets.all(16),
         children: [
-          if (staleDays != null && staleDays > 0)
+          if (!customRange && staleDays != null && staleDays > 0)
             _WarningCard(
                 text:
                     'El historial está desactualizado por $staleDays día${staleDays == 1 ? '' : 's'}. Los valores se calculan hasta ${statisticsDate(response!.asOfDate)}.'),
-          if (staleDays != null && staleDays > 0) const SizedBox(height: 12),
+          if (!customRange && staleDays != null && staleDays > 0)
+            const SizedBox(height: 12),
           Card(
               child: Padding(
                   padding: const EdgeInsets.all(14),
@@ -925,6 +1091,9 @@ class _CurrentSituationTab extends StatelessWidget {
                     Text(
                         'Actualización: ${statisticsDate(response?.asOfDate)}'),
                     Text('Hoy RD: ${formatCalendarDate(today)}'),
+                    if (customRange)
+                      Text(
+                          'Referencia del período: ${statisticsDate(response?.asOfDate)}'),
                   ]))),
           const SizedBox(height: 12),
           DropdownButtonFormField<CurrentNumberOrder>(
@@ -961,10 +1130,12 @@ class _CurrentSituationTab extends StatelessWidget {
                 title: Text(
                     item.daysSinceLastAppearance == null
                         ? 'Sin apariciones registradas'
-                        : '${item.daysSinceLastAppearance} días',
+                        : customRange
+                            ? '${item.daysSinceLastAppearance} días hasta el final del período'
+                            : '${item.daysSinceLastAppearance} días',
                     style: const TextStyle(fontWeight: FontWeight.w900)),
                 subtitle: Text(
-                    'Última aparición: ${statisticsDate(item.lastAppearanceDate)}'),
+                    '${customRange ? 'Última aparición dentro del período' : 'Última aparición'}: ${statisticsDate(item.lastAppearanceDate)}'),
               ),
             ),
           const _Disclaimer(),
@@ -994,7 +1165,9 @@ class _CombinedCurrentSituation extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-              'Hoy RD: ${formatCalendarDate(dominicanCalendarDate((nowUtc ?? DateTime.now()).toUtc()))}',
+              controller.appliedRange == null
+                  ? 'Hoy RD: ${formatCalendarDate(dominicanCalendarDate((nowUtc ?? DateTime.now()).toUtc()))}'
+                  : 'Referencia del período: ${formatCalendarDate(controller.appliedRange!.to)}',
               style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           for (var index = 0; index < (national?.results.length ?? 0); index++)
@@ -1002,10 +1175,10 @@ class _CombinedCurrentSituation extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 leading: _NumberBall(national!.results[index].number),
-                title:
-                    Text('Nacional: ${_currentDays(national.results[index])}'),
-                subtitle:
-                    Text('Gana Más: ${_currentDays(ganaMas!.results[index])}'),
+                title: Text(
+                    'Nacional: ${_currentDays(national.results[index], controller.appliedRange != null)}'),
+                subtitle: Text(
+                    'Gana Más: ${_currentDays(ganaMas!.results[index], controller.appliedRange != null)}'),
               ),
             ),
           const _Disclaimer(),
@@ -1014,9 +1187,12 @@ class _CombinedCurrentSituation extends StatelessWidget {
     );
   }
 
-  static String _currentDays(NumberStatistics item) =>
-      item.daysSinceLastAppearance == null
-          ? 'sin apariciones'
+  static String _currentDays(NumberStatistics item, bool customRange) => item
+              .daysSinceLastAppearance ==
+          null
+      ? 'sin apariciones'
+      : customRange
+          ? '${item.daysSinceLastAppearance} días hasta el final del período'
           : '${item.daysSinceLastAppearance} días sin aparecer';
 }
 
@@ -1096,7 +1272,7 @@ class _FullError extends StatelessWidget {
   const _FullError({required this.onRetry, this.message});
 
   @override
-  Widget build(BuildContext context) => Center(
+  Widget build(BuildContext context) => SingleChildScrollView(
           child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(mainAxisSize: MainAxisSize.min, children: [

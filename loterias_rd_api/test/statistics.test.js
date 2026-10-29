@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { DRAW_ID, NATIONAL_DRAW_ID, OPERATOR_ID, SERIES, SANTO_DOMINGO_TIMEZONE } from '../src/history/constants.js';
-import { currentDateInZone, ValidationError } from '../src/history/validation.js';
+import { currentDateInZone, parseDateRange, ValidationError } from '../src/history/validation.js';
 import {
   aggregateIntervals,
   buildStatistics,
@@ -46,6 +46,27 @@ test('uses only consecutive appearances for each number', () => {
   const calculated = calculateConsecutiveIntervals(rows, coverage(1, 5));
   assert.deepEqual(calculated.intervals.map((item) => item.days), [2, 2]);
   assert.equal(calculated.intervals.some((item) => item.days === 4), false);
+});
+
+test('recalculates intervals only from appearances inside a selected range', () => {
+  const rows = [
+    result('2026-05-01', '27'),
+    result('2026-05-15', '27'),
+    result('2026-05-30', '27'),
+  ].filter((item) => item.draw_date >= '2026-05-10' && item.draw_date <= '2026-05-31');
+  const statistics = buildStatistics(rows, coverage(10, 31), '2026-05-31');
+  assert.deepEqual(statistics.intervals.map((item) => item.days), [15]);
+  assert.equal(statistics.numbers.find((item) => item.number === '27').appearancesObserved, 2);
+});
+
+test('validates complete, ordered and non-future date ranges', () => {
+  assert.deepEqual(
+    parseDateRange(new URLSearchParams({ from: '2026-05-10', to: '2026-05-31' }), '2026-06-01'),
+    { from: '2026-05-10', to: '2026-05-31' },
+  );
+  assert.throws(() => parseDateRange(new URLSearchParams({ from: '2026-05-10' })), /provided together/);
+  assert.throws(() => parseDateRange(new URLSearchParams({ from: '2026-05-31', to: '2026-05-10' })), /must not be after/);
+  assert.throws(() => parseDateRange(new URLSearchParams({ from: '2026-05-10', to: '2026-06-02' }), '2026-06-01'), /future/);
 });
 
 test('preserves numbers with a leading zero', () => {
