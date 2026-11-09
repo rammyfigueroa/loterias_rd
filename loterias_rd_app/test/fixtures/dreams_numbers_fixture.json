@@ -1,0 +1,149 @@
+{
+  "metadata": {
+    "schemaVersion": "1.0.0",
+    "catalogVersion": "fixture-1",
+    "locale": "es-DO-x-fixture",
+    "generatedAt": "2026-11-09T12:00:00Z",
+    "editorialStatus": "draft"
+  },
+  "sources": [
+    {
+      "id": "source_fixture_authorized",
+      "title": "Fuente sintética autorizada",
+      "author": "Equipo de pruebas",
+      "publisher": "Fixture local",
+      "url": null,
+      "publicationDate": "2026-11-09",
+      "accessDate": "2026-11-09",
+      "sourceType": "synthetic_fixture",
+      "jurisdiction": "TEST",
+      "rightsStatus": "authorized",
+      "verificationStatus": "verified"
+    },
+    {
+      "id": "source_fixture_pending",
+      "title": "Fuente sintética pendiente",
+      "author": "Equipo de pruebas",
+      "publisher": "Fixture local",
+      "url": null,
+      "publicationDate": "2026-11-09",
+      "accessDate": "2026-11-09",
+      "sourceType": "synthetic_fixture",
+      "jurisdiction": "TEST",
+      "rightsStatus": "permissionPending",
+      "verificationStatus": "supported"
+    }
+  ],
+  "entries": [
+    {
+      "id": "simbolo_prueba_a",
+      "canonicalTerm": "Símbolo Prueba A",
+      "category": "fixture",
+      "description": "Concepto artificial A usado solo por pruebas.",
+      "variants": [
+        {
+          "term": "señal alfa",
+          "relationType": "synonym",
+          "context": "Fixture sintético",
+          "locale": "es-DO-x-fixture"
+        },
+        {
+          "term": "eco prueba",
+          "relationType": "related",
+          "context": "Relación artificial ambigua",
+          "locale": "es-DO-x-fixture"
+        }
+      ]
+    },
+    {
+      "id": "simbolo_prueba_b",
+      "canonicalTerm": "Símbolo Prueba B",
+      "category": "fixture",
+      "description": "Concepto artificial B usado solo por pruebas.",
+      "variants": [
+        {
+          "term": "eco prueba",
+          "relationType": "synonym",
+          "context": "Variante artificial ambigua",
+          "locale": "es-DO-x-fixture"
+        }
+      ]
+    },
+    {
+      "id": "simbolo_prueba_c",
+      "canonicalTerm": "Símbolo Prueba Compuesto",
+      "category": "fixture",
+      "description": "Concepto artificial compuesto usado solo por pruebas.",
+      "variants": [
+        {
+          "term": "señal de prueba larga",
+          "relationType": "phrase",
+          "context": "Frase artificial",
+          "locale": "es-DO-x-fixture"
+        },
+        {
+          "term": "objeto cercano",
+          "relationType": "related",
+          "context": "Concepto relacionado artificial",
+          "locale": "es-DO-x-fixture"
+        }
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim_fixture_a_10",
+      "catalogEntryId": "simbolo_prueba_a",
+      "number": "10",
+      "sourceId": "source_fixture_authorized",
+      "sourceLocation": "fixture:a:10",
+      "verificationStatus": "verified",
+      "notes": "Asociación completamente sintética."
+    },
+    {
+      "id": "claim_fixture_a_20",
+      "catalogEntryId": "simbolo_prueba_a",
+      "number": "20",
+      "sourceId": "source_fixture_pending",
+      "sourceLocation": "fixture:a:20",
+      "verificationStatus": "supported",
+      "notes": "Conflicto completamente sintético."
+    },
+    {
+      "id": "claim_fixture_b_30",
+      "catalogEntryId": "simbolo_prueba_b",
+      "number": "30",
+      "sourceId": "source_fixture_authorized",
+      "sourceLocation": "fixture:b:30",
+      "verificationStatus": "verified",
+      "notes": "Asociación completamente sintética."
+    },
+    {
+      "id": "claim_fixture_c_40",
+      "catalogEntryId": "simbolo_prueba_c",
+      "number": "40",
+      "sourceId": "source_fixture_authorized",
+      "sourceLocation": "fixture:c:40",
+      "verificationStatus": "verified",
+      "notes": "Asociación completamente sintética."
+    }
+  ],
+  "interpretations": [
+    {
+      "id": "interpretation_fixture_a",
+      "catalogEntryId": "simbolo_prueba_a",
+      "text": "Texto editorial sintético que nunca debe publicarse.",
+      "sourceReferences": ["source_fixture_authorized"],
+      "verificationStatus": "unverified",
+      "publicationStatus": "draft"
+    }
+  ],
+  "conflictGroups": [
+    {
+      "id": "conflict_fixture_a",
+      "claimIds": ["claim_fixture_a_10", "claim_fixture_a_20"],
+      "conflictType": "numericAssociation",
+      "explanation": "Dos números sintéticos incompatibles para probar conflictos."
+    }
+  ]
+}

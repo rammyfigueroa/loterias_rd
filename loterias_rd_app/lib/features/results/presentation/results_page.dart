@@ -3,11 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../app/app_features.dart';
 import '../../../data/favorites_repository.dart';
 import '../../../data/lottery_results_remote_source.dart';
 import '../../../data/lottery_results_repository.dart';
 import '../../../data/sample_data.dart';
 import '../../../domain/lottery_result.dart';
+import '../../dreams_numbers/presentation/dreams_navigation.dart';
+import '../../dreams_numbers/presentation/widgets/dreams_entry_widgets.dart';
 import '../application/lottery_catalog.dart';
 import 'info_page.dart';
 import 'lottery_details_page.dart';
@@ -16,7 +19,12 @@ import 'stats_page.dart';
 import 'widgets/lottery_home_widgets.dart';
 
 class ResultsPage extends StatefulWidget {
-  const ResultsPage({super.key});
+  final bool dreamsNumbersEnabled;
+
+  const ResultsPage({
+    super.key,
+    this.dreamsNumbersEnabled = AppFeatures.dreamsNumbersEnabled,
+  });
 
   @override
   State<ResultsPage> createState() => _ResultsPageState();
@@ -131,10 +139,20 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: const Color(0xFF0648A8),
-        drawer: _HomeDrawer(onSearch: () {
-          Navigator.of(context).pop();
-          _searchFocusNode.requestFocus();
-        }),
+        drawer: _HomeDrawer(
+          dreamsNumbersEnabled: widget.dreamsNumbersEnabled,
+          onSearch: () {
+            Navigator.of(context).pop();
+            _searchFocusNode.requestFocus();
+          },
+          onDreamsNumbers: () {
+            Navigator.of(context).pop();
+            openDreamsNumbersModule(
+              context,
+              enabled: widget.dreamsNumbersEnabled,
+            );
+          },
+        ),
         body: SafeArea(
           bottom: false,
           child: FutureBuilder<List<LotteryResult>>(
@@ -245,6 +263,19 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
                       ),
                     );
                   },
+                ),
+              ),
+            if (widget.dreamsNumbersEnabled)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 28, 16, 0),
+                sliver: SliverToBoxAdapter(
+                  child: DreamsModulePromoCard(
+                    enabled: widget.dreamsNumbersEnabled,
+                    onTap: () => openDreamsNumbersModule(
+                      context,
+                      enabled: widget.dreamsNumbersEnabled,
+                    ),
+                  ),
                 ),
               ),
             SliverPadding(
@@ -428,8 +459,14 @@ class _SectionTitle extends StatelessWidget {
 
 class _HomeDrawer extends StatelessWidget {
   final VoidCallback onSearch;
+  final VoidCallback onDreamsNumbers;
+  final bool dreamsNumbersEnabled;
 
-  const _HomeDrawer({required this.onSearch});
+  const _HomeDrawer({
+    required this.onSearch,
+    required this.onDreamsNumbers,
+    required this.dreamsNumbersEnabled,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -478,6 +515,11 @@ class _HomeDrawer extends StatelessWidget {
             title: const Text('Buscar resultados'),
             onTap: onSearch,
           ),
+          if (dreamsNumbersEnabled)
+            DreamsDrawerTile(
+              enabled: dreamsNumbersEnabled,
+              onTap: onDreamsNumbers,
+            ),
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 20),
             leading: const Icon(Icons.insights_outlined),

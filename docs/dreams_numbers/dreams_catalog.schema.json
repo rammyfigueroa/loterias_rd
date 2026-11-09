@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sorteosdominicanos.local/schemas/dreams-catalog-1.2.0.json",
+  "title": "Catalogo documental de suenos y numeros",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["metadata", "sources", "entries", "claims", "interpretations", "conflictGroups"],
+  "properties": {
+    "metadata": { "$ref": "#/$defs/catalogMetadata" },
+    "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+    "entries": { "type": "array", "items": { "$ref": "#/$defs/catalogEntry" } },
+    "claims": { "type": "array", "items": { "$ref": "#/$defs/documentaryClaim" } },
+    "interpretations": { "type": "array", "items": { "$ref": "#/$defs/editorialInterpretation" } },
+    "conflictGroups": { "type": "array", "items": { "$ref": "#/$defs/conflictGroup" } },
+    "rightsEvidence": { "type": "array", "items": { "$ref": "#/$defs/rightsEvidence" } },
+    "articles": { "type": "array", "items": { "$ref": "#/$defs/culturalArticle" } }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "metadata": {
+            "properties": { "schemaVersion": { "const": "1.2.0" } },
+            "required": ["schemaVersion"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "rightsEvidence": {
+            "items": { "required": ["legalBasisType"] }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "nonEmptyText": { "type": "string", "minLength": 1 },
+    "nullableText": { "type": ["string", "null"] },
+    "date": { "type": "string", "format": "date" },
+    "nullableDate": { "type": ["string", "null"], "format": "date" },
+    "twoDigitNumber": { "type": "string", "pattern": "^(?:0[0-9]|[1-9][0-9])$" },
+    "rightsStatus": {
+      "enum": ["authorized", "openLicense", "permissionPending", "unauthorized", "restricted", "unknown"]
+    },
+    "verificationStatus": {
+      "enum": ["verified", "supported", "disputed", "unverified", "rejected"]
+    },
+    "publicationStatus": { "enum": ["draft", "review", "approved", "rejected"] },
+    "relationType": { "enum": ["exact", "synonym", "related", "narrower", "broader", "phrase"] },
+    "conflictType": { "enum": ["numericAssociation", "terminology", "provenance", "other"] },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "accessDate", "sourceType", "jurisdiction", "rightsStatus", "verificationStatus"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "$ref": "#/$defs/nonEmptyText" },
+        "author": { "$ref": "#/$defs/nullableText" },
+        "publisher": { "$ref": "#/$defs/nullableText" },
+        "url": { "$ref": "#/$defs/nullableText" },
+        "publicationDate": { "$ref": "#/$defs/nullableDate" },
+        "accessDate": { "$ref": "#/$defs/date" },
+        "sourceType": { "$ref": "#/$defs/nonEmptyText" },
+        "jurisdiction": { "$ref": "#/$defs/nonEmptyText" },
+        "rightsStatus": { "$ref": "#/$defs/rightsStatus" },
+        "verificationStatus": { "$ref": "#/$defs/verificationStatus" }
+      }
+    },
+    "termVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["term", "relationType", "locale"],
+      "properties": {
+        "term": { "$ref": "#/$defs/nonEmptyText" },
+        "relationType": { "$ref": "#/$defs/relationType" },
+        "context": { "$ref": "#/$defs/nullableText" },
+        "locale": { "$ref": "#/$defs/nonEmptyText" }
+      }
+    },
+    "catalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "canonicalTerm", "category", "description", "variants"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "canonicalTerm": { "$ref": "#/$defs/nonEmptyText" },
+        "category": { "$ref": "#/$defs/nonEmptyText" },
+        "description": { "$ref": "#/$defs/nonEmptyText" },
+        "variants": { "type": "array", "items": { "$ref": "#/$defs/termVariant" } }
+      }
+    },
+    "documentaryClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "catalogEntryId", "number", "sourceId", "sourceLocation", "verificationStatus"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "catalogEntryId": { "$ref": "#/$defs/id" },
+        "number": { "$ref": "#/$defs/twoDigitNumber" },
+        "sourceId": { "$ref": "#/$defs/id" },
+        "sourceLocation": { "$ref": "#/$defs/nonEmptyText" },
+        "verificationStatus": { "$ref": "#/$defs/verificationStatus" },
+        "notes": { "$ref": "#/$defs/nullableText" },
+        "rightsEvidenceIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }
+      }
+    },
+    "editorialInterpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "catalogEntryId", "text", "sourceReferences", "verificationStatus", "publicationStatus"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "catalogEntryId": { "$ref": "#/$defs/id" },
+        "text": { "$ref": "#/$defs/nonEmptyText" },
+        "sourceReferences": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "verificationStatus": { "$ref": "#/$defs/verificationStatus" },
+        "publicationStatus": { "$ref": "#/$defs/publicationStatus" },
+        "rightsEvidenceIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }
+      }
+    },
+    "conflictGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "claimIds", "conflictType", "explanation"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "claimIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "minItems": 2, "uniqueItems": true },
+        "conflictType": { "$ref": "#/$defs/conflictType" },
+        "explanation": { "$ref": "#/$defs/nonEmptyText" }
+      }
+    },
+    "rightsEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sourceId", "rightsHolder", "authorizationType", "evidenceReference", "evidenceDate", "validFrom", "territory", "commercialUseAllowed", "redistributionAllowed", "derivativeWorksAllowed", "attributionRequired", "reviewStatus", "reviewedAt", "scopeType", "scopeReferences"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "sourceId": { "$ref": "#/$defs/id" },
+        "rightsHolder": { "$ref": "#/$defs/nonEmptyText" },
+        "authorizationType": { "enum": ["writtenPermission", "contract", "openLicense", "publicDomain", "other"] },
+        "evidenceReference": { "$ref": "#/$defs/nonEmptyText" },
+        "evidenceDate": { "$ref": "#/$defs/date" },
+        "validFrom": { "$ref": "#/$defs/date" },
+        "validUntil": { "$ref": "#/$defs/nullableDate" },
+        "indefiniteTermJustification": { "$ref": "#/$defs/nullableText" },
+        "territory": { "enum": ["dominicanRepublic", "worldwide", "specificTerritories"] },
+        "territories": { "type": "array", "items": { "type": "string", "minLength": 2 }, "uniqueItems": true },
+        "commercialUseAllowed": { "type": "boolean" },
+        "redistributionAllowed": { "type": "boolean" },
+        "derivativeWorksAllowed": { "type": "boolean" },
+        "attributionRequired": { "type": "boolean" },
+        "restrictions": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyText" }, "uniqueItems": true },
+        "reviewStatus": { "enum": ["pending", "approved", "rejected"] },
+        "reviewedAt": { "$ref": "#/$defs/date" },
+        "scopeType": { "enum": ["fullSource", "specificFragment", "table", "article", "image", "editorialText", "structuredData", "other"] },
+        "scopeReferences": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyText" }, "minItems": 1, "uniqueItems": true },
+        "legalBasisType": { "enum": ["explicitPermission", "originalWork", "compatibleOpenLicense", "reviewedLegalException"] },
+        "authorshipReference": { "$ref": "#/$defs/nullableText" },
+        "originalityDeclaration": { "$ref": "#/$defs/nullableText" },
+        "editorialReviewReference": { "$ref": "#/$defs/nullableText" },
+        "historicalFactReferences": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "unauthorizedReproductionConfirmedAbsent": { "type": ["boolean", "null"] },
+        "licenseIdentifier": { "$ref": "#/$defs/nullableText" },
+        "licenseVersion": { "$ref": "#/$defs/nullableText" },
+        "licenseUrl": { "$ref": "#/$defs/nullableText" },
+        "licenseConditions": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyText" }, "uniqueItems": true },
+        "attributionReference": { "$ref": "#/$defs/nullableText" },
+        "legalJurisdiction": { "$ref": "#/$defs/nullableText" },
+        "legalException": { "$ref": "#/$defs/nullableText" },
+        "legalReviewReference": { "$ref": "#/$defs/nullableText" },
+        "legalReviewerRole": { "$ref": "#/$defs/nullableText" },
+        "legalConclusionDate": { "$ref": "#/$defs/nullableDate" },
+        "legalLimitations": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyText" }, "uniqueItems": true }
+      }
+    },
+    "culturalArticle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "category", "text", "sourceReferences", "rightsEvidenceIds", "verificationStatus", "rightsStatus", "publicationStatus", "reviewedAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "$ref": "#/$defs/nonEmptyText" },
+        "category": { "$ref": "#/$defs/nonEmptyText" },
+        "text": { "$ref": "#/$defs/nonEmptyText" },
+        "sourceReferences": { "type": "array", "items": { "$ref": "#/$defs/id" }, "minItems": 1, "uniqueItems": true },
+        "rightsEvidenceIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "verificationStatus": { "$ref": "#/$defs/verificationStatus" },
+        "rightsStatus": { "$ref": "#/$defs/rightsStatus" },
+        "publicationStatus": { "$ref": "#/$defs/publicationStatus" },
+        "reviewedAt": { "$ref": "#/$defs/date" }
+      }
+    },
+    "catalogMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "catalogVersion", "locale", "generatedAt", "editorialStatus"],
+      "properties": {
+        "schemaVersion": { "enum": ["1.0.0", "1.1.0", "1.2.0"] },
+        "catalogVersion": { "$ref": "#/$defs/nonEmptyText" },
+        "locale": { "$ref": "#/$defs/nonEmptyText" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "editorialStatus": { "$ref": "#/$defs/publicationStatus" }
+      }
+    }
+  }
+}
