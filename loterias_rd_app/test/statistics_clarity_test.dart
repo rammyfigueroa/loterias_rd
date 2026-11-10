@@ -66,6 +66,20 @@ void main() {
       expect(value.isValid, isTrue);
     });
 
+    test('accepts local picker dates against UTC coverage boundaries', () {
+      final value = StatisticsDateRangeValidator.validate(
+        from: DateTime(2026, 11, 1),
+        to: DateTime(2026, 11, 9),
+        today: DateTime.utc(2026, 11, 10),
+        coverageFrom: DateTime.utc(2026, 11, 1),
+        coverageTo: DateTime.utc(2026, 11, 9),
+      );
+
+      expect(value.isValid, isTrue);
+      expect(value.from, DateTime.utc(2026, 11, 1));
+      expect(value.to, DateTime.utc(2026, 11, 9));
+    });
+
     test('rejects inverted, future, outside and incomplete ranges', () {
       StatisticsDateRangeValidation validate(DateTime? from, DateTime? to) =>
           StatisticsDateRangeValidator.validate(
@@ -185,6 +199,74 @@ void main() {
     await tester.pump();
     expect(find.text('Selecciona las fechas Desde y Hasta.'), findsOneWidget);
     expect(find.text('0 sorteos analizados · 0 apariciones'), findsOneWidget);
+  });
+
+  testWidgets('applies a valid custom range and updates the sample summary',
+      (tester) async {
+    final loader = _StaticResultsLoader(
+      _response([
+        _result('2026-11-01', const ['01', '02']),
+        _result('2026-11-09', const ['03', '04', '05']),
+      ]),
+    );
+    final session = LotteryResultsSession(
+      loader: loader,
+    );
+    await session.load();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatsPage(resultsSession: session, nowUtc: testNowUtc),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Rango'));
+    await tester.pump();
+
+    await tester.tap(find.text('Desde: --/--/----'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1').last);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Hasta: --/--/----'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('9').last);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    final applyRange = find.byKey(const Key('apply-local-statistics-range'));
+    await tester.ensureVisible(applyRange);
+    await tester.tap(applyRange);
+    await tester.pump();
+
+    expect(find.text('Período: 01/11/2026 al 09/11/2026'), findsOneWidget);
+    expect(find.text('2 sorteos analizados · 5 apariciones'), findsOneWidget);
+    expect(find.text('No hay datos suficientes para calcular estadísticas.'),
+        findsNothing);
+    expect(loader.calls, 1);
+
+    await tester.tap(find.text('Desde: 01/11/2026'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2').last);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Hasta: 09/11/2026'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('8').last);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(applyRange);
+    await tester.tap(applyRange);
+    await tester.pump();
+
+    expect(find.text('Período: 02/11/2026 al 08/11/2026'), findsOneWidget);
+    expect(find.text('0 sorteos analizados · 0 apariciones'), findsOneWidget);
+    expect(find.text('No hay datos suficientes para calcular estadísticas.'),
+        findsOneWidget);
+    expect(loader.calls, 1);
   });
 
   testWidgets('keeps prior statistics on error and retries locally',

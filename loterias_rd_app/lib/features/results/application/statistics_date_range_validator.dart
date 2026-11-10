@@ -52,6 +52,8 @@ class StatisticsDateRangeValidator {
     );
   }
 
+  // Date pickers return local dates while result coverage is normalized to UTC.
+  // Compare calendar values in one zone so equal boundary dates stay equal.
   static DateTime _dateOnly(DateTime value) =>
-      DateTime(value.year, value.month, value.day);
+      DateTime.utc(value.year, value.month, value.day);
 }
