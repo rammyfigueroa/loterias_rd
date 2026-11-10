@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/app_theme.dart';
-import '../../../data/favorites_repository.dart';
+import '../../../data/favorites_session.dart';
 import '../../../domain/lottery_result.dart';
 import '../application/lottery_catalog.dart';
 import '../application/result_share_service.dart';
@@ -13,15 +13,13 @@ import 'widgets/lottery_icon.dart';
 
 class LotteryDetailsPage extends StatefulWidget {
   final LotteryGroup group;
-  final FavoritesRepository favoritesRepository;
-  final bool initiallyFavorite;
+  final FavoritesSession favoritesSession;
   final DateTime? nowUtc;
 
   const LotteryDetailsPage({
     super.key,
     required this.group,
-    required this.favoritesRepository,
-    required this.initiallyFavorite,
+    required this.favoritesSession,
     this.nowUtc,
   });
 
@@ -31,7 +29,6 @@ class LotteryDetailsPage extends StatefulWidget {
 
 class _LotteryDetailsPageState extends State<LotteryDetailsPage>
     with WidgetsBindingObserver {
-  late bool _isFavorite;
   late DateTime _nowUtc;
   Timer? _dayChangeTimer;
 
@@ -40,13 +37,14 @@ class _LotteryDetailsPageState extends State<LotteryDetailsPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _nowUtc = widget.nowUtc ?? DateTime.now().toUtc();
-    _isFavorite = widget.initiallyFavorite;
+    widget.favoritesSession.addListener(_onFavoritesChanged);
     _scheduleDayChangeRefresh();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.favoritesSession.removeListener(_onFavoritesChanged);
     _dayChangeTimer?.cancel();
     super.dispose();
   }
@@ -72,9 +70,31 @@ class _LotteryDetailsPageState extends State<LotteryDetailsPage>
   }
 
   Future<void> _toggleFavorite() async {
-    final next =
-        await widget.favoritesRepository.toggleFavoriteLottery(widget.group.id);
-    if (mounted) setState(() => _isFavorite = next);
+    final adding = !widget.favoritesSession.isFavorite(widget.group.id);
+    try {
+      await widget.favoritesSession.toggleLottery(widget.group.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            adding
+                ? '${widget.group.name} se agregó a Favoritas.'
+                : '${widget.group.name} se quitó de Favoritas.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo guardar el cambio en Favoritas.'),
+        ),
+      );
+    }
+  }
+
+  void _onFavoritesChanged() {
+    if (mounted) setState(() {});
   }
 
   void _openResult(LotteryResult result) {
@@ -87,6 +107,8 @@ class _LotteryDetailsPageState extends State<LotteryDetailsPage>
 
   @override
   Widget build(BuildContext context) {
+    final isFavorite = widget.favoritesSession.isFavorite(widget.group.id);
+    final favoritePending = widget.favoritesSession.isPending(widget.group.id);
     final results = widget.group.results;
     final latestDate = results.isEmpty ? '' : results.first.drawDate;
     final recent = results.where((r) => r.drawDate == latestDate).toList();
@@ -124,11 +146,18 @@ class _LotteryDetailsPageState extends State<LotteryDetailsPage>
             ],
           ),
           actions: [
-            IconButton(
-              tooltip:
-                  _isFavorite ? 'Quitar de favoritas' : 'Agregar a favoritas',
-              onPressed: _toggleFavorite,
-              icon: Icon(_isFavorite ? Icons.star : Icons.star_outline),
+            Semantics(
+              button: true,
+              selected: isFavorite,
+              label: isFavorite
+                  ? 'Quitar ${widget.group.name} de favoritas'
+                  : 'Agregar ${widget.group.name} a favoritas',
+              child: IconButton(
+                tooltip:
+                    isFavorite ? 'Quitar de favoritas' : 'Agregar a favoritas',
+                onPressed: favoritePending ? null : _toggleFavorite,
+                icon: Icon(isFavorite ? Icons.star : Icons.star_outline),
+              ),
             ),
           ],
           bottom: const TabBar(

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/first_prize_statistics_repository.dart';
 import '../domain/first_prize_statistics.dart';
+import '../../results/application/statistics_date_range_validator.dart';
 import 'statistics_comparison.dart';
 
 enum StatisticsLoadState { loading, data, empty, error }
@@ -276,25 +277,36 @@ class FirstPrizeStatisticsController extends ChangeNotifier {
 
   Future<void> applyPendingRange() async {
     final available = availableRange;
+    if ((pendingFrom == null) != (pendingTo == null)) {
+      rangeError = 'Selecciona las fechas Desde y Hasta.';
+      notifyListeners();
+      return;
+    }
     final from = pendingFrom ?? available.first;
     final to = pendingTo ?? available.last;
-    if (from == null || to == null) {
-      rangeError = 'Selecciona las fechas Desde y Hasta.';
-    } else if (from.isAfter(to)) {
-      rangeError = 'Desde no puede ser posterior a Hasta.';
-    } else if ((available.first != null && from.isBefore(available.first!)) ||
-        (available.last != null && to.isAfter(available.last!))) {
-      rangeError = 'El rango debe estar dentro de la cobertura disponible.';
-    } else {
+    final now = DateTime.now().toUtc().subtract(const Duration(hours: 4));
+    final validation = StatisticsDateRangeValidator.validate(
+      from: from,
+      to: to,
+      today: now,
+      coverageFrom: available.first,
+      coverageTo: available.last,
+    );
+    rangeError = validation.error;
+    if (validation.isValid) {
       rangeError = null;
-      appliedRange = StatisticsDateRange(from: from, to: to);
+      appliedRange = StatisticsDateRange(
+        from: validation.from!,
+        to: validation.to!,
+      );
       _intervalRequestId += 1;
       _numberRequestId += 1;
       notifyListeners();
       await load();
       return;
+    } else {
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<void> useFullHistory() async {

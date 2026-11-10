@@ -22,10 +22,13 @@ class LotteryResultsResponse {
 /// `--dart-define=LOTTERIES_API_URL=...`.
 class LotteryResultsRemoteSource {
   final String apiUrl;
+  final Duration timeout;
 
-  LotteryResultsRemoteSource()
-      : apiUrl = const String.fromEnvironment('LOTTERIES_API_URL',
-            defaultValue: 'https://api.sorteosdominicanos.workers.dev/results');
+  LotteryResultsRemoteSource({this.timeout = const Duration(seconds: 12)})
+      : apiUrl = const String.fromEnvironment(
+          'LOTTERIES_API_URL',
+          defaultValue: 'https://api.sorteosdominicanos.workers.dev/results',
+        );
 
   /// Fetch the latest results from the remote API.
   Future<LotteryResultsResponse> getLatestResults() async {
@@ -33,7 +36,7 @@ class LotteryResultsRemoteSource {
       throw Exception('API URL not provided');
     }
     final uri = Uri.parse(apiUrl);
-    final res = await http.get(uri);
+    final res = await http.get(uri).timeout(timeout);
     if (res.statusCode != 200) {
       throw Exception('Failed to fetch results: ${res.statusCode}');
     }

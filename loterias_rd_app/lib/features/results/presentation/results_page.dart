@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 
 import '../../../app/app_features.dart';
 import '../../../data/favorites_repository.dart';
+import '../../../data/favorites_session.dart';
 import '../../../data/lottery_results_remote_source.dart';
 import '../../../data/lottery_results_repository.dart';
+import '../../../data/lottery_results_session.dart';
 import '../../../data/sample_data.dart';
 import '../../../domain/lottery_result.dart';
 import '../../dreams_numbers/presentation/dreams_navigation.dart';
@@ -20,10 +22,14 @@ import 'widgets/lottery_home_widgets.dart';
 
 class ResultsPage extends StatefulWidget {
   final bool dreamsNumbersEnabled;
+  final LotteryResultsSession? resultsSession;
+  final FavoritesSession? favoritesSession;
 
   const ResultsPage({
     super.key,
     this.dreamsNumbersEnabled = AppFeatures.dreamsNumbersEnabled,
+    this.resultsSession,
+    this.favoritesSession,
   });
 
   @override
@@ -32,11 +38,12 @@ class ResultsPage extends StatefulWidget {
 
 class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  late final LotteryResultsRepository _repository;
-  final FavoritesRepository _favoritesRepository = FavoritesRepository();
+  late final LotteryResultsSession _resultsSession;
+  late final bool _ownsResultsSession;
+  late final FavoritesSession _favoritesSession;
+  late final bool _ownsFavoritesSession;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  late Future<List<LotteryResult>> _futureResults;
   Set<String> _favoriteLotteryIds = <String>{};
   String _query = '';
   String _selectedFilter = 'Todas';
@@ -48,12 +55,21 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _repository = LotteryResultsRepository(
-      remoteSource: LotteryResultsRemoteSource(),
-      sampleSource: SampleLotteryResultsSource(),
-    );
-    _futureResults = _loadResults();
-    _loadFavorites();
+    _ownsResultsSession = widget.resultsSession == null;
+    _resultsSession = widget.resultsSession ??
+        LotteryResultsSession(
+          loader: LotteryResultsRepository(
+            remoteSource: LotteryResultsRemoteSource(),
+            sampleSource: SampleLotteryResultsSource(),
+          ),
+        );
+    _resultsSession.addListener(_onResultsChanged);
+    _ownsFavoritesSession = widget.favoritesSession == null;
+    _favoritesSession = widget.favoritesSession ??
+        FavoritesSession(store: FavoritesRepository());
+    _favoritesSession.addListener(_onFavoritesChanged);
+    unawaited(_loadInitialResults());
+    unawaited(_loadFavorites());
     _scheduleDayChangeRefresh();
   }
 
@@ -61,6 +77,10 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _dayChangeTimer?.cancel();
+    _resultsSession.removeListener(_onResultsChanged);
+    if (_ownsResultsSession) _resultsSession.dispose();
+    _favoritesSession.removeListener(_onFavoritesChanged);
+    if (_ownsFavoritesSession) _favoritesSession.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -87,25 +107,77 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
     _dayChangeTimer = Timer(delay, _refreshDominicanDate);
   }
 
-  Future<List<LotteryResult>> _loadResults() async {
-    final response = await _repository.getLatestResults();
-    return sortResultsNewestFirst(response.results);
+  void _onResultsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onFavoritesChanged() {
+    if (!mounted) return;
+    setState(() {
+      _favoriteLotteryIds = _favoritesSession.favoriteLotteryIds;
+    });
+  }
+
+  Future<void> _loadInitialResults() async {
+    try {
+      await _resultsSession.load();
+    } catch (_) {}
   }
 
   Future<void> _loadFavorites() async {
-    final favorites = await _favoritesRepository.getFavoriteLotteryIds();
-    if (mounted) setState(() => _favoriteLotteryIds = favorites);
+    try {
+      final favorites = await _favoritesSession.load();
+      if (mounted) setState(() => _favoriteLotteryIds = favorites);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleFavorite(LotteryGroup group) async {
+    final adding = !_favoritesSession.isFavorite(group.id);
+    try {
+      await _favoritesSession.toggleLottery(group.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 2),
+          content: Text(
+            adding
+                ? '${group.name} se agregó a Favoritas.'
+                : '${group.name} se quitó de Favoritas.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo guardar el cambio en Favoritas.'),
+        ),
+      );
+    }
   }
 
   Future<void> _refresh() async {
-    final next = _loadResults();
     final nowUtc = DateTime.now().toUtc();
-    setState(() {
-      _futureResults = next;
-      _nowUtc = nowUtc;
-    });
+    setState(() => _nowUtc = nowUtc);
     _scheduleDayChangeRefresh(nowUtc: nowUtc);
-    await Future.wait([next, _loadFavorites()]);
+    try {
+      await Future.wait([_resultsSession.refresh(), _loadFavorites()]);
+    } catch (_) {
+      if (!mounted || !_resultsSession.hasData) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No pudimos actualizar. Conservamos los resultados anteriores.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _retryInitialLoad() async {
+    try {
+      await _resultsSession.refresh();
+    } catch (_) {}
   }
 
   Future<void> _openLottery(LotteryGroup group) async {
@@ -113,13 +185,11 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
       MaterialPageRoute(
         builder: (_) => LotteryDetailsPage(
           group: group,
-          favoritesRepository: _favoritesRepository,
-          initiallyFavorite: _favoriteLotteryIds.contains(group.id),
+          favoritesSession: _favoritesSession,
           nowUtc: _nowUtc,
         ),
       ),
     );
-    await _loadFavorites();
   }
 
   void _openResult(LotteryResult result) {
@@ -140,6 +210,7 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
         key: _scaffoldKey,
         backgroundColor: const Color(0xFF0648A8),
         drawer: _HomeDrawer(
+          resultsSession: _resultsSession,
           dreamsNumbersEnabled: widget.dreamsNumbersEnabled,
           onSearch: () {
             Navigator.of(context).pop();
@@ -153,21 +224,20 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
             );
           },
         ),
-        body: SafeArea(
-          bottom: false,
-          child: FutureBuilder<List<LotteryResult>>(
-            future: _futureResults,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const _LoadingHome();
-              }
-              if (snapshot.hasError) return _ErrorHome(onRetry: _refresh);
-              return _buildLoadedHome(snapshot.data ?? const <LotteryResult>[]);
-            },
-          ),
-        ),
+        body: SafeArea(bottom: false, child: _buildSessionBody()),
       ),
     );
+  }
+
+  Widget _buildSessionBody() {
+    final response = _resultsSession.response;
+    if (response == null) {
+      if (_resultsSession.state == LotteryResultsSessionState.error) {
+        return _ErrorHome(onRetry: _retryInitialLoad);
+      }
+      return const _LoadingHome();
+    }
+    return _buildLoadedHome(sortResultsNewestFirst(response.results));
   }
 
   Widget _buildLoadedHome(List<LotteryResult> allResults) {
@@ -201,6 +271,14 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
                 onMenu: () => _scaffoldKey.currentState?.openDrawer(),
               ),
             ),
+            SliverToBoxAdapter(
+              child: _ResultsUpdateStatus(
+                isRefreshing: _resultsSession.isRefreshing,
+                hasError: _resultsSession.error != null,
+                updatedAt: _resultsSession.response?.updatedAt,
+                onRetry: _refresh,
+              ),
+            ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 2),
               sliver: SliverToBoxAdapter(
@@ -232,13 +310,19 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverLayoutBuilder(
                   builder: (context, constraints) {
-                    final columns = constraints.crossAxisExtent >= 340 ? 3 : 2;
+                    final textScale = MediaQuery.textScalerOf(context).scale(1);
+                    final columns =
+                        constraints.crossAxisExtent >= 340 && textScale <= 1.3
+                            ? 3
+                            : 2;
                     final spacing =
                         constraints.crossAxisExtent >= 380 ? 12.0 : 10.0;
                     final cardWidth = (constraints.crossAxisExtent -
                             spacing * (columns - 1)) /
                         columns;
-                    final cardHeight = (cardWidth * 1.52).clamp(156.0, 174.0);
+                    final addedTextHeight = ((textScale - 1).clamp(0, 1)) * 34;
+                    final cardHeight = (cardWidth * 1.52 + addedTextHeight)
+                        .clamp(156.0, 230.0);
                     return SliverGrid(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: columns,
@@ -252,6 +336,9 @@ class _ResultsPageState extends State<ResultsPage> with WidgetsBindingObserver {
                           return LotteryCard(
                             group: group,
                             isFavorite: _favoriteLotteryIds.contains(group.id),
+                            favoriteActionPending:
+                                _favoritesSession.isPending(group.id),
+                            onToggleFavorite: () => _toggleFavorite(group),
                             hasResultsToday: lotteryHasResultsToday(
                               group,
                               nowUtc: _nowUtc,
@@ -457,12 +544,96 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+class _ResultsUpdateStatus extends StatelessWidget {
+  final bool isRefreshing;
+  final bool hasError;
+  final String? updatedAt;
+  final Future<void> Function() onRetry;
+
+  const _ResultsUpdateStatus({
+    required this.isRefreshing,
+    required this.hasError,
+    required this.updatedAt,
+    required this.onRetry,
+  });
+
+  String? get _formattedUpdatedAt {
+    final parsed = DateTime.tryParse(updatedAt ?? '');
+    if (parsed == null) return null;
+    final dominican = parsed.toUtc().add(dominicanUtcOffset);
+    final day = dominican.day.toString().padLeft(2, '0');
+    final month = dominican.month.toString().padLeft(2, '0');
+    final hour = dominican.hour.toString().padLeft(2, '0');
+    final minute = dominican.minute.toString().padLeft(2, '0');
+    return '$day/$month/${dominican.year} · $hour:$minute';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lastUpdate = _formattedUpdatedAt;
+    if (!isRefreshing && !hasError && lastUpdate == null) {
+      return const SizedBox.shrink();
+    }
+    return Semantics(
+      liveRegion: true,
+      label: isRefreshing
+          ? 'Actualizando resultados'
+          : hasError
+              ? 'Error de actualización. Se muestran datos anteriores.'
+              : 'Última actualización $lastUpdate',
+      child: ColoredBox(
+        color: hasError ? const Color(0xFFFFF7E8) : const Color(0xFFEAF3FF),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              if (isRefreshing)
+                const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(
+                  hasError ? Icons.cloud_off_outlined : Icons.schedule,
+                  size: 18,
+                  color: const Color(0xFF315A8C),
+                ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isRefreshing
+                      ? 'Actualizando resultados...'
+                      : hasError
+                          ? 'No se pudo actualizar. Mostrando datos anteriores.'
+                          : 'Última actualización: $lastUpdate',
+                  style: const TextStyle(
+                    color: Color(0xFF315A8C),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (hasError)
+                TextButton(
+                  onPressed: onRetry,
+                  child: const Text('Reintentar'),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _HomeDrawer extends StatelessWidget {
+  final LotteryResultsSession resultsSession;
   final VoidCallback onSearch;
   final VoidCallback onDreamsNumbers;
   final bool dreamsNumbersEnabled;
 
   const _HomeDrawer({
+    required this.resultsSession,
     required this.onSearch,
     required this.onDreamsNumbers,
     required this.dreamsNumbersEnabled,
@@ -527,7 +698,9 @@ class _HomeDrawer extends StatelessWidget {
             onTap: () {
               Navigator.of(context).pop();
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const StatsPage()),
+                MaterialPageRoute(
+                  builder: (_) => StatsPage(resultsSession: resultsSession),
+                ),
               );
             },
           ),

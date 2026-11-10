@@ -316,6 +316,30 @@ void main() {
     expect(controller.appliedRange, isNull);
   });
 
+  test('rejects incomplete, inverted and future ranges without requesting data',
+      () async {
+    final repository = FakeStatisticsRepository();
+    final controller = FirstPrizeStatisticsController(repository);
+    await controller.load();
+    final baselineRequests = repository.requestedRanges.length;
+
+    controller.setPendingFrom(DateTime(2026, 5, 1));
+    await controller.applyPendingRange();
+    expect(controller.rangeError, contains('Desde y Hasta'));
+    expect(repository.requestedRanges.length, baselineRequests);
+
+    controller.setPendingTo(DateTime(2026, 4, 30));
+    await controller.applyPendingRange();
+    expect(controller.rangeError, contains('posterior'));
+    expect(repository.requestedRanges.length, baselineRequests);
+
+    controller.setPendingFrom(DateTime(2099, 1, 1));
+    controller.setPendingTo(DateTime(2099, 1, 2));
+    await controller.applyPendingRange();
+    expect(controller.rangeError, contains('futuras'));
+    expect(repository.requestedRanges.length, baselineRequests);
+  });
+
   test('clears old data and ignores a late response after changing draw',
       () async {
     final repository = DelayedStatisticsRepository();
@@ -500,4 +524,28 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('supports reduced height and 2x text without overflow',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 520);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: const TextScaler.linear(2),
+          ),
+          child: child!,
+        ),
+        home: FirstPrizeStatisticsPage(
+          repository: FakeStatisticsRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('first-prize-header-scroll')), findsOneWidget);
+  });
 }

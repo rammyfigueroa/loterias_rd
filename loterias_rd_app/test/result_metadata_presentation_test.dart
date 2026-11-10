@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sorteosdominicanos_app/app/theme/app_theme.dart';
 import 'package:sorteosdominicanos_app/data/favorites_repository.dart';
+import 'package:sorteosdominicanos_app/data/favorites_session.dart';
 import 'package:sorteosdominicanos_app/domain/lottery_result.dart';
 import 'package:sorteosdominicanos_app/features/results/application/lottery_catalog.dart';
 import 'package:sorteosdominicanos_app/features/results/presentation/lottery_details_page.dart';
@@ -36,8 +37,7 @@ void main() {
             name: 'Anguila',
             results: [item],
           ),
-          favoritesRepository: FavoritesRepository(),
-          initiallyFavorite: false,
+          favoritesSession: FavoritesSession(store: FavoritesRepository()),
           nowUtc: DateTime.utc(2026, 10, 21, 18),
         ),
       ),
@@ -64,8 +64,7 @@ void main() {
             name: 'Anguila',
             results: [latest, previous],
           ),
-          favoritesRepository: FavoritesRepository(),
-          initiallyFavorite: false,
+          favoritesSession: FavoritesSession(store: FavoritesRepository()),
           nowUtc: DateTime.utc(2026, 10, 21, 18),
         ),
       ),

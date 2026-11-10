@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import '../../../app/app_features.dart';
 import '../../../data/lottery_results_remote_source.dart';
 import '../../../data/lottery_results_repository.dart';
+import '../../../data/lottery_results_session.dart';
 import '../../../data/sample_data.dart';
 import '../../../domain/lottery_result.dart';
 import '../../first_prize_statistics/data/first_prize_statistics_config.dart';
 import '../../first_prize_statistics/presentation/first_prize_statistics_page.dart';
 import '../../historical_relations/presentation/historical_relations_navigation.dart';
 import '../application/lottery_catalog.dart';
+import '../application/statistics_date_range_validator.dart';
 
 enum StatsMode { calientes, frios, veces }
 
@@ -16,10 +18,14 @@ enum StatsPeriod { hoy, sieteDias, treintaDias, rango }
 
 class StatsPage extends StatefulWidget {
   final bool historicalRelationsEnabled;
+  final LotteryResultsSession? resultsSession;
+  final DateTime? nowUtc;
 
   const StatsPage({
     super.key,
     this.historicalRelationsEnabled = AppFeatures.historicalRelationsEnabled,
+    this.resultsSession,
+    this.nowUtc,
   });
 
   @override
@@ -27,35 +33,54 @@ class StatsPage extends StatefulWidget {
 }
 
 class _StatsPageState extends State<StatsPage> {
-  late final LotteryResultsRepository _repository;
-  late Future<List<LotteryResult>> _futureResults;
+  late final LotteryResultsSession _resultsSession;
+  late final bool _ownsResultsSession;
   StatsMode _mode = StatsMode.frios;
   StatsPeriod _period = StatsPeriod.sieteDias;
   String? _selectedLottery;
   DateTime? _customFromDate;
   DateTime? _customToDate;
+  DateTime? _appliedFromDate;
+  DateTime? _appliedToDate;
+  String? _rangeError;
+  List<LotteryResult> _latestResults = const [];
 
   @override
   void initState() {
     super.initState();
-    _repository = LotteryResultsRepository(
-      remoteSource: LotteryResultsRemoteSource(),
-      sampleSource: SampleLotteryResultsSource(),
-    );
-    _futureResults = _loadResults();
+    _ownsResultsSession = widget.resultsSession == null;
+    _resultsSession = widget.resultsSession ??
+        LotteryResultsSession(
+          loader: LotteryResultsRepository(
+            remoteSource: LotteryResultsRemoteSource(),
+            sampleSource: SampleLotteryResultsSource(),
+          ),
+        );
+    _resultsSession.addListener(_onResultsChanged);
+    _loadResults();
   }
 
-  Future<List<LotteryResult>> _loadResults() async {
-    final resp = await _repository.getLatestResults();
-    final list = resp.results;
-    list.sort((a, b) => b.drawDate.compareTo(a.drawDate));
-    return list;
+  @override
+  void dispose() {
+    _resultsSession.removeListener(_onResultsChanged);
+    if (_ownsResultsSession) _resultsSession.dispose();
+    super.dispose();
   }
 
-  void _retryLoad() {
-    setState(() {
-      _futureResults = _loadResults();
-    });
+  void _onResultsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadResults() async {
+    try {
+      await _resultsSession.load();
+    } catch (_) {}
+  }
+
+  Future<void> _retryLoad() async {
+    try {
+      await _resultsSession.refresh();
+    } catch (_) {}
   }
 
   String _normalizeNumber(String value) {
@@ -78,10 +103,13 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   DateTime _onlyDate(DateTime date) =>
-      DateTime(date.year, date.month, date.day);
+      DateTime.utc(date.year, date.month, date.day);
+
+  DateTime get _dominicanToday =>
+      dominicanCalendarDate(widget.nowUtc ?? DateTime.now().toUtc());
 
   List<LotteryResult> _filterByPeriod(List<LotteryResult> results) {
-    final today = dominicanCalendarDate(DateTime.now().toUtc());
+    final today = _dominicanToday;
     DateTime? from;
     DateTime? to;
 
@@ -99,14 +127,18 @@ class _StatsPageState extends State<StatsPage> {
         to = today;
         break;
       case StatsPeriod.rango:
-        from = _customFromDate == null ? null : _onlyDate(_customFromDate!);
-        to = _customToDate == null ? null : _onlyDate(_customToDate!);
+        if (_appliedFromDate == null || _appliedToDate == null) return const [];
+        from = _onlyDate(_appliedFromDate!);
+        to = _onlyDate(_appliedToDate!);
         break;
     }
 
     return results.where((result) {
+      if (_selectedLottery != null && result.lotteryName != _selectedLottery) {
+        return false;
+      }
       final parsed = parseDrawDate(result.drawDate, now: today);
-      if (parsed == null) return true;
+      if (parsed == null) return false;
       final date = _onlyDate(parsed);
       if (from != null && date.isBefore(from)) return false;
       if (to != null && date.isAfter(to)) return false;
@@ -120,15 +152,26 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Future<void> _pickCustomDate({required bool isFrom}) async {
-    final now = DateTime.now();
+    final today = _dominicanToday;
+    final coverage = _availableCoverage(_latestResults);
+    final coverageTo = coverage.to;
+    final lastDate =
+        coverageTo != null && coverageTo.isBefore(today) ? coverageTo : today;
+    final coverageFrom = coverage.from ?? DateTime.utc(today.year - 5);
+    final firstDate = coverageFrom.isAfter(lastDate) ? lastDate : coverageFrom;
     final initialDate = isFrom
-        ? (_customFromDate ?? _customToDate ?? now)
-        : (_customToDate ?? _customFromDate ?? now);
+        ? (_customFromDate ?? _customToDate ?? lastDate)
+        : (_customToDate ?? _customFromDate ?? lastDate);
+    final safeInitial = initialDate.isBefore(firstDate)
+        ? firstDate
+        : initialDate.isAfter(lastDate)
+            ? lastDate
+            : initialDate;
     final picked = await showDatePicker(
       context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 1),
+      initialDate: safeInitial,
+      firstDate: firstDate,
+      lastDate: lastDate,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -145,34 +188,58 @@ class _StatsPageState extends State<StatsPage> {
       _period = StatsPeriod.rango;
       if (isFrom) {
         _customFromDate = picked;
-        if (_customToDate != null && _customToDate!.isBefore(picked)) {
-          _customToDate = picked;
-        }
       } else {
         _customToDate = picked;
-        if (_customFromDate != null && _customFromDate!.isAfter(picked)) {
-          _customFromDate = picked;
-        }
+      }
+      _rangeError = null;
+    });
+  }
+
+  ({DateTime? from, DateTime? to}) _availableCoverage(
+    List<LotteryResult> results,
+  ) {
+    final today = _dominicanToday;
+    final dates = results
+        .where((result) =>
+            _selectedLottery == null || result.lotteryName == _selectedLottery)
+        .map((result) => parseDrawDate(result.drawDate, now: today))
+        .whereType<DateTime>()
+        .map(_onlyDate)
+        .toList()
+      ..sort();
+    return dates.isEmpty
+        ? (from: null, to: null)
+        : (from: dates.first, to: dates.last);
+  }
+
+  void _applyCustomRange() {
+    final today = _dominicanToday;
+    final coverage = _availableCoverage(_latestResults);
+    final validation = StatisticsDateRangeValidator.validate(
+      from: _customFromDate,
+      to: _customToDate,
+      today: today,
+      coverageFrom: coverage.from,
+      coverageTo: coverage.to,
+    );
+    setState(() {
+      _rangeError = validation.error;
+      if (validation.isValid) {
+        _appliedFromDate = validation.from;
+        _appliedToDate = validation.to;
       }
     });
   }
 
   List<_NumberStat> _buildStats(List<LotteryResult> results) {
-    final periodResults = _filterByPeriod(results);
-    final filtered = _selectedLottery == null
-        ? periodResults
-        : periodResults
-            .where((r) => r.lotteryName == _selectedLottery)
-            .toList();
-
     final stats = <String, _NumberStat>{};
     for (var i = 0; i < 100; i++) {
       final number = i.toString().padLeft(2, '0');
       stats[number] = _NumberStat(number: number);
     }
 
-    for (var index = 0; index < filtered.length; index++) {
-      final result = filtered[index];
+    for (var index = 0; index < results.length; index++) {
+      final result = results[index];
 
       // Count every valid number returned by the API.
       // This makes statistics work correctly for Loto, Kino and special draws.
@@ -193,6 +260,7 @@ class _StatsPageState extends State<StatsPage> {
     }
 
     final list = stats.values.toList();
+    if (results.isEmpty) return const [];
     switch (_mode) {
       case StatsMode.calientes:
         list.sort((a, b) {
@@ -319,7 +387,7 @@ class _StatsPageState extends State<StatsPage> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        height: selected ? 46 : 42,
+        height: 52,
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(18),
@@ -337,35 +405,41 @@ class _StatsPageState extends State<StatsPage> {
             ),
           ],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => setState(() => _mode = mode),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _modeIcon(mode),
-                  size: selected ? 18 : 16,
-                  color: foreground,
-                ),
-                const SizedBox(width: 5),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: foreground,
-                      fontWeight: selected ? FontWeight.w900 : FontWeight.w800,
-                      fontSize: selected ? 12.5 : 12,
-                      letterSpacing: 0.1,
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: 'Estadística $label',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => setState(() => _mode = mode),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _modeIcon(mode),
+                    size: selected ? 18 : 16,
+                    color: foreground,
+                  ),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: foreground,
+                        fontWeight:
+                            selected ? FontWeight.w900 : FontWeight.w800,
+                        fontSize: selected ? 12.5 : 12,
+                        letterSpacing: 0.1,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -391,10 +465,12 @@ class _StatsPageState extends State<StatsPage> {
           fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
           fontSize: 12,
         ),
-        visualDensity: const VisualDensity(horizontal: -2, vertical: -3),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        materialTapTargetSize: MaterialTapTargetSize.padded,
         onSelected: (_) {
-          setState(() => _period = period);
+          setState(() {
+            _period = period;
+            if (period != StatsPeriod.rango) _rangeError = null;
+          });
         },
       ),
     );
@@ -407,7 +483,7 @@ class _StatsPageState extends State<StatsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            height: 34,
+            height: 48,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
@@ -433,54 +509,93 @@ class _StatsPageState extends State<StatsPage> {
                   ),
                 ],
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _pickCustomDate(isFrom: true),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Text(
-                          'Desde: ${_formatDate(_customFromDate, '--/--/----')}',
-                          style: const TextStyle(
-                            color: Color(0xFF003893),
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _pickCustomDate(isFrom: true),
+                          borderRadius: BorderRadius.circular(12),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 48),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Desde: ${_formatDate(_customFromDate, '--/--/----')}',
+                                style: const TextStyle(
+                                  color: Color(0xFF003893),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _pickCustomDate(isFrom: false),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Text(
-                          'Hasta: ${_formatDate(_customToDate, '--/--/----')}',
-                          style: const TextStyle(
-                            color: Color(0xFF003893),
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _pickCustomDate(isFrom: false),
+                          borderRadius: BorderRadius.circular(12),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 48),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Hasta: ${_formatDate(_customToDate, '--/--/----')}',
+                                style: const TextStyle(
+                                  color: Color(0xFF003893),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
+                      if (_customFromDate != null || _customToDate != null)
+                        IconButton(
+                          tooltip: 'Limpiar rango',
+                          icon: const Icon(
+                            Icons.close,
+                            color: Color(0xFF003893),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _customFromDate = null;
+                              _customToDate = null;
+                              _appliedFromDate = null;
+                              _appliedToDate = null;
+                              _rangeError = null;
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                  if (_rangeError != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _rangeError!,
+                      key: const Key('local-statistics-range-error'),
+                      style: const TextStyle(
+                        color: Color(0xFFB42318),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      key: const Key('apply-local-statistics-range'),
+                      onPressed: _applyCustomRange,
+                      icon: const Icon(Icons.check, size: 17),
+                      label: const Text('Aplicar fechas'),
                     ),
                   ),
-                  if (_customFromDate != null || _customToDate != null)
-                    IconButton(
-                      tooltip: 'Limpiar rango',
-                      icon: const Icon(Icons.close, color: Color(0xFF003893)),
-                      onPressed: () {
-                        setState(() {
-                          _customFromDate = null;
-                          _customToDate = null;
-                        });
-                      },
-                    ),
                 ],
               ),
             ),
@@ -531,9 +646,104 @@ class _StatsPageState extends State<StatsPage> {
             ),
           ],
           onChanged: (value) {
-            setState(() => _selectedLottery = value);
+            setState(() {
+              _selectedLottery = value;
+              if (_period == StatsPeriod.rango) {
+                _appliedFromDate = null;
+                _appliedToDate = null;
+                _rangeError = 'Aplica nuevamente el rango para esta lotería.';
+              }
+            });
           },
         ),
+      ),
+    );
+  }
+
+  String get _periodDescription {
+    switch (_period) {
+      case StatsPeriod.hoy:
+        return 'Hoy (hora dominicana)';
+      case StatsPeriod.sieteDias:
+        return 'Últimos 7 días';
+      case StatsPeriod.treintaDias:
+        return 'Últimos 30 días';
+      case StatsPeriod.rango:
+        if (_appliedFromDate == null || _appliedToDate == null) {
+          return 'Rango pendiente de aplicar';
+        }
+        return '${formatCalendarDate(_appliedFromDate!)} al ${formatCalendarDate(_appliedToDate!)}';
+    }
+  }
+
+  Widget _buildSampleSummary(
+    List<LotteryResult> allResults,
+    List<LotteryResult> filteredResults,
+  ) {
+    final coverage = _availableCoverage(allResults);
+    final appearances = filteredResults.fold<int>(
+      0,
+      (total, result) =>
+          total +
+          result.numbers
+              .where((number) => _normalizeNumber(number).isNotEmpty)
+              .length,
+    );
+    final coverageText = coverage.from == null || coverage.to == null
+        ? 'Cobertura no disponible'
+        : 'Cobertura: ${formatCalendarDate(coverage.from!)} al ${formatCalendarDate(coverage.to!)}';
+    final drawCount = filteredResults.length;
+    final drawLabel =
+        drawCount == 1 ? 'sorteo analizado' : 'sorteos analizados';
+    final appearanceLabel = appearances == 1 ? 'aparición' : 'apariciones';
+    return Container(
+      key: const Key('statistics-sample-summary'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$drawCount $drawLabel · $appearances $appearanceLabel',
+            key: const Key('statistics-sample-size'),
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'Período: $_periodDescription',
+            style: const TextStyle(
+              color: Color(0xFF475569),
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+          Text(
+            coverageText,
+            key: const Key('statistics-coverage'),
+            style: const TextStyle(
+              color: Color(0xFF475569),
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Resumen histórico descriptivo; no predice resultados futuros.',
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 11.5,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -605,120 +815,128 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 74,
-            height: 74,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.16),
-              border: Border.all(color: Colors.white.withOpacity(0.22)),
-            ),
-            child: const Center(
-              child: SizedBox(
-                width: 30,
-                height: 30,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+    return Semantics(
+      liveRegion: true,
+      label: 'Cargando estadísticas',
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 74,
+              height: 74,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.16),
+                border: Border.all(color: Colors.white.withOpacity(0.22)),
+              ),
+              child: const Center(
+                child: SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Calculando estadísticas...',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Estamos revisando los resultados del período seleccionado.',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Colors.white70),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              'Calculando estadísticas...',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Estamos revisando los resultados del período seleccionado.',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Colors.white70),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildErrorState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                blurRadius: 12,
-                offset: Offset(0, 6),
-                color: Colors.black12,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 62,
-                height: 62,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0x14003893),
+      child: Semantics(
+        liveRegion: true,
+        label: 'Error al cargar estadísticas',
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(
+                  blurRadius: 12,
+                  offset: Offset(0, 6),
+                  color: Colors.black12,
                 ),
-                child: const Icon(
-                  Icons.cloud_off_rounded,
-                  color: Color(0xFF003893),
-                  size: 30,
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 62,
+                  height: 62,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0x14003893),
+                  ),
+                  child: const Icon(
+                    Icons.cloud_off_rounded,
+                    color: Color(0xFF003893),
+                    size: 30,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'No pudimos cargar las estadísticas',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFF0F172A),
-                      fontWeight: FontWeight.w900,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Verifica tu conexión o intenta nuevamente en unos segundos.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF64748B),
-                      fontWeight: FontWeight.w600,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _retryLoad,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Reintentar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF003893),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                const SizedBox(height: 14),
+                Text(
+                  'No pudimos cargar las estadísticas',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: const Color(0xFF0F172A),
+                        fontWeight: FontWeight.w900,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Verifica tu conexión o intenta nuevamente en unos segundos.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _retryLoad,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Reintentar'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003893),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -727,47 +945,64 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _buildStatsList(List<_NumberStat> stats) {
     if (stats.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.16),
-                  border: Border.all(color: Colors.white.withOpacity(0.24)),
-                ),
-                child: const Icon(
-                  Icons.analytics_outlined,
-                  size: 36,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'No hay datos suficientes para calcular estadísticas.',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxHeight < 150;
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: compact
+                  ? Text(
+                      'No hay datos para el rango aplicado.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                      textAlign: TextAlign.center,
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.24),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.analytics_outlined,
+                            size: 36,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'No hay datos suficientes para calcular estadísticas.',
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Prueba cambiar el período o seleccionar otra lotería.',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.white70,
+                                  ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Prueba cambiar el período o seleccionar otra lotería.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Colors.white70),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
     }
 
@@ -802,8 +1037,7 @@ class _StatsPageState extends State<StatsPage> {
             'Coincidencias de Primera',
             style: TextStyle(fontWeight: FontWeight.w900),
           ),
-          subtitle:
-              const Text('Gana Más · análisis histórico de primer premio'),
+          subtitle: const Text('Lotería Nacional y Gana Más · primer premio'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const FirstPrizeStatisticsPage()),
@@ -815,6 +1049,12 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final response = _resultsSession.response;
+    final results = response == null
+        ? const <LotteryResult>[]
+        : (List<LotteryResult>.from(response.results)
+          ..sort((a, b) => b.drawDate.compareTo(a.drawDate)));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Estadísticas'),
@@ -839,47 +1079,77 @@ class _StatsPageState extends State<StatsPage> {
             stops: [0.0, 0.32, 1.0],
           ),
         ),
-        child: FutureBuilder<List<LotteryResult>>(
-          future: _futureResults,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return _buildLoadingState();
-            }
-            if (snapshot.hasError) {
-              return _buildErrorState();
-            }
-
-            final results = snapshot.data ?? [];
-            final stats = _buildStats(results);
-
-            return Column(
-              children: [
-                _buildHeader(),
-                if (FirstPrizeStatisticsConfig.available)
-                  _buildFirstPrizeStatisticsEntry(),
-                if (widget.historicalRelationsEnabled)
-                  const HistoricalRelationsEntry(enabled: true),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Row(
-                    children: [
-                      _modeChip('Fríos', StatsMode.frios),
-                      const SizedBox(width: 8),
-                      _modeChip('Veces', StatsMode.veces),
-                      const SizedBox(width: 8),
-                      _modeChip('Calientes', StatsMode.calientes),
-                    ],
-                  ),
-                ),
-                _buildPeriodFilter(),
-                _buildLotteryFilter(results),
-                Expanded(child: _buildStatsList(stats)),
-              ],
-            );
-          },
-        ),
+        child: response == null
+            ? (_resultsSession.state == LotteryResultsSessionState.error
+                ? _buildErrorState()
+                : _buildLoadingState())
+            : _buildLoadedStatistics(results),
       ),
+    );
+  }
+
+  Widget _buildLoadedStatistics(List<LotteryResult> results) {
+    _latestResults = results;
+    final filteredResults = _filterByPeriod(results);
+    final stats = _buildStats(filteredResults);
+    final controls = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_resultsSession.isRefreshing)
+          const LinearProgressIndicator(minHeight: 3),
+        if (_resultsSession.error != null)
+          MaterialBanner(
+            content: const Text(
+              'No se pudo actualizar. Las estadísticas usan los resultados anteriores.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: _retryLoad,
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        _buildHeader(),
+        if (FirstPrizeStatisticsConfig.available)
+          _buildFirstPrizeStatisticsEntry(),
+        if (widget.historicalRelationsEnabled)
+          const HistoricalRelationsEntry(enabled: true),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              _modeChip('Fríos', StatsMode.frios),
+              const SizedBox(width: 8),
+              _modeChip('Veces', StatsMode.veces),
+              const SizedBox(width: 8),
+              _modeChip('Calientes', StatsMode.calientes),
+            ],
+          ),
+        ),
+        _buildPeriodFilter(),
+        _buildLotteryFilter(results),
+        _buildSampleSummary(results, filteredResults),
+      ],
+    );
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final constrained = constraints.maxHeight < 720 || textScale > 1.3;
+        return Column(
+          children: [
+            if (constrained)
+              Flexible(
+                child: SingleChildScrollView(
+                  key: const Key('statistics-controls-scroll'),
+                  child: controls,
+                ),
+              )
+            else
+              controls,
+            Expanded(child: _buildStatsList(stats)),
+          ],
+        );
+      },
     );
   }
 }

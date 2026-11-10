@@ -87,20 +87,38 @@ class _FirstPrizeStatisticsPageState extends State<FirstPrizeStatisticsPage> {
             ],
           ),
         ),
-        body: Column(
-          children: [
-            _SeriesHeader(controller: controller),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _CoincidencesTab(controller: controller),
-                  _NumbersTab(controller: controller),
-                  _CurrentSituationTab(
-                      controller: controller, nowUtc: widget.nowUtc),
-                ],
-              ),
-            ),
-          ],
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final textScale = MediaQuery.textScalerOf(context).scale(1);
+            final constrained = constraints.maxHeight < 650 || textScale > 1.3;
+            final header = _SeriesHeader(controller: controller);
+            return Column(
+              children: [
+                if (constrained)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: constraints.maxHeight * .58,
+                    ),
+                    child: SingleChildScrollView(
+                      key: const Key('first-prize-header-scroll'),
+                      child: header,
+                    ),
+                  )
+                else
+                  header,
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _CoincidencesTab(controller: controller),
+                      _NumbersTab(controller: controller),
+                      _CurrentSituationTab(
+                          controller: controller, nowUtc: widget.nowUtc),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -274,13 +292,21 @@ class _DateButton extends StatelessWidget {
       required this.date,
       required this.onTap});
   @override
-  Widget build(BuildContext context) => OutlinedButton.icon(
+  Widget build(BuildContext context) => OutlinedButton(
         onPressed: date == null ? null : onTap,
-        icon: const Icon(Icons.calendar_month_outlined),
-        label: Text(
-            '$label: ${date == null ? 'Cargando…' : formatCalendarDate(date!)}'),
-        style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 48), alignment: Alignment.centerLeft),
+        style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_month_outlined),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '$label: ${date == null ? 'Cargando…' : formatCalendarDate(date!)}',
+                maxLines: 2,
+              ),
+            ),
+          ],
+        ),
       );
 }
 
@@ -364,9 +390,16 @@ class _HeaderChip extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, color: Colors.white, size: 17),
           const SizedBox(width: 6),
-          Text(label,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 2,
               style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w700)),
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ]),
       );
 }
@@ -383,16 +416,19 @@ class _CoincidencesTab extends StatelessWidget {
         key: const Key('coincidences-list'),
         padding: const EdgeInsets.all(16),
         children: [
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'verified', label: Text('Verificados')),
-              ButtonSegment(value: 'incomplete', label: Text('Incompletos')),
-              ButtonSegment(value: 'all', label: Text('Todos')),
-            ],
-            selected: {controller.coverage},
-            showSelectedIcon: false,
-            onSelectionChanged: (value) =>
-                controller.loadIntervals(value.first),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'verified', label: Text('Verificados')),
+                ButtonSegment(value: 'incomplete', label: Text('Incompletos')),
+                ButtonSegment(value: 'all', label: Text('Todos')),
+              ],
+              selected: {controller.coverage},
+              showSelectedIcon: false,
+              onSelectionChanged: (value) =>
+                  controller.loadIntervals(value.first),
+            ),
           ),
           if (controller.coverage != 'verified') ...[
             const SizedBox(height: 12),
@@ -465,14 +501,17 @@ class _CombinedCoincidencesState extends State<_CombinedCoincidences> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     return Column(children: [
-      SegmentedButton<bool>(
-        segments: const [
-          ButtonSegment(value: false, label: Text('Ranking combinado')),
-          ButtonSegment(value: true, label: Text('Compartidas')),
-        ],
-        selected: {shared},
-        showSelectedIcon: false,
-        onSelectionChanged: (value) => setState(() => shared = value.first),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: false, label: Text('Ranking combinado')),
+            ButtonSegment(value: true, label: Text('Compartidas')),
+          ],
+          selected: {shared},
+          showSelectedIcon: false,
+          onSelectionChanged: (value) => setState(() => shared = value.first),
+        ),
       ),
       const SizedBox(height: 12),
       if (!shared)
@@ -1249,17 +1288,27 @@ class _StateBody extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (state) {
       case StatisticsLoadState.loading:
-        return const Center(
+        return Semantics(
+          liveRegion: true,
+          label: 'Cargando estadísticas de primera',
+          child: const Center(
             child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator()));
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        );
       case StatisticsLoadState.empty:
         return Center(
             child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(emptyText, textAlign: TextAlign.center)));
       case StatisticsLoadState.error:
-        return _FullError(onRetry: onRetry, message: error);
+        return Semantics(
+          liveRegion: true,
+          label: 'Error al cargar estadísticas de primera',
+          child: _FullError(onRetry: onRetry, message: error),
+        );
       case StatisticsLoadState.data:
         return child;
     }

@@ -1,7 +1,13 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+abstract interface class LotteryFavoritesStore {
+  Future<Set<String>> getFavoriteLotteryIds();
+
+  Future<bool> toggleFavoriteLottery(String id);
+}
+
 /// Simple repository for persisting favourite result identifiers.
-class FavoritesRepository {
+class FavoritesRepository implements LotteryFavoritesStore {
   static const String _key = 'favorite_ids';
   static const String _lotteryKey = 'favorite_lottery_ids';
 
@@ -29,11 +35,13 @@ class FavoritesRepository {
     return list.contains(id);
   }
 
+  @override
   Future<Set<String>> getFavoriteLotteryIds() async {
     final prefs = await SharedPreferences.getInstance();
     return (prefs.getStringList(_lotteryKey) ?? []).toSet();
   }
 
+  @override
   Future<bool> toggleFavoriteLottery(String id) async {
     final prefs = await SharedPreferences.getInstance();
     final favorites = (prefs.getStringList(_lotteryKey) ?? []).toSet();
