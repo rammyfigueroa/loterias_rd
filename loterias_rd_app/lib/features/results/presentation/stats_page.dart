@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/app_features.dart';
 import '../../../data/lottery_results_remote_source.dart';
 import '../../../data/lottery_results_repository.dart';
 import '../../../data/sample_data.dart';
 import '../../../domain/lottery_result.dart';
 import '../../first_prize_statistics/data/first_prize_statistics_config.dart';
 import '../../first_prize_statistics/presentation/first_prize_statistics_page.dart';
+import '../../historical_relations/presentation/historical_relations_navigation.dart';
 import '../application/lottery_catalog.dart';
 
 enum StatsMode { calientes, frios, veces }
@@ -13,7 +15,12 @@ enum StatsMode { calientes, frios, veces }
 enum StatsPeriod { hoy, sieteDias, treintaDias, rango }
 
 class StatsPage extends StatefulWidget {
-  const StatsPage({super.key});
+  final bool historicalRelationsEnabled;
+
+  const StatsPage({
+    super.key,
+    this.historicalRelationsEnabled = AppFeatures.historicalRelationsEnabled,
+  });
 
   @override
   State<StatsPage> createState() => _StatsPageState();
@@ -850,6 +857,8 @@ class _StatsPageState extends State<StatsPage> {
                 _buildHeader(),
                 if (FirstPrizeStatisticsConfig.available)
                   _buildFirstPrizeStatisticsEntry(),
+                if (widget.historicalRelationsEnabled)
+                  const HistoricalRelationsEntry(enabled: true),
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

@@ -2,6 +2,7 @@ import { currentDateInZone, parseDateRange, parseLimit, requireAuthorizedSeries,
 import { SANTO_DOMINGO_TIMEZONE } from '../history/constants.js';
 import { aggregateIntervals } from './engine.js';
 import { loadStatisticsSnapshot } from './service.js';
+import { loadNumberTransitions } from './number-transitions-service.js';
 
 const BASE_PATH = '/statistics/first-prize';
 const DISCLAIMER = 'This analysis describes observed historical coincidences and does not predict future results.';
@@ -43,6 +44,56 @@ function coverageFilter(searchParams) {
     throw new ValidationError('coverage must be verified, incomplete or all.');
   }
   return value;
+}
+
+function transitionNumber(searchParams) {
+  const value = searchParams.get('number');
+  if (!/^\d{2}$/.test(value || '')) {
+    throw new ValidationError('number must be between 00 and 99 and use two digits.');
+  }
+  return value;
+}
+
+function transitionPosition(searchParams) {
+  const value = searchParams.get('position');
+  if (value !== 'first') throw new ValidationError('position must be first.');
+  return value;
+}
+
+function encodeTransitionCursor(offset, fingerprint) {
+  return btoa(JSON.stringify({ offset, fingerprint }))
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replace(/=+$/, '');
+}
+
+function decodeTransitionCursor(value, fingerprint) {
+  if (!value) return 0;
+  try {
+    const normalized = value.replaceAll('-', '+').replaceAll('_', '/');
+    const parsed = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')));
+    if (!Number.isSafeInteger(parsed.offset) || parsed.offset < 0 || parsed.fingerprint !== fingerprint) {
+      throw new Error('invalid cursor');
+    }
+    return parsed.offset;
+  } catch {
+    throw new ValidationError('cursor is invalid or belongs to another data revision.');
+  }
+}
+
+function paginateTransitions(items, searchParams, fingerprint) {
+  const limit = parseLimit(searchParams.get('limit'), 25, 100);
+  const offset = decodeTransitionCursor(searchParams.get('cursor'), fingerprint);
+  const results = items.slice(offset, offset + limit);
+  const nextOffset = offset + results.length;
+  const hasMore = nextOffset < items.length;
+  return {
+    count: results.length,
+    total: items.length,
+    hasMore,
+    nextCursor: hasMore ? encodeTransitionCursor(nextOffset, fingerprint) : null,
+    results,
+  };
 }
 
 function snapshotOptions(searchParams) {
@@ -125,12 +176,38 @@ async function numberStatistics(request, env) {
   };
 }
 
-export async function handleStatisticsRequest(request, env) {
+async function numberTransitions(request, env, { now = new Date() } = {}) {
+  const url = new URL(request.url);
+  const series = requireAuthorizedSeries(url.searchParams);
+  const position = transitionPosition(url.searchParams);
+  const originNumber = transitionNumber(url.searchParams);
+  const coverageMode = coverageFilter(url.searchParams);
+  const asOfDate = currentDateInZone(SANTO_DOMINGO_TIMEZONE, now);
+  const range = parseDateRange(url.searchParams, asOfDate);
+  const snapshot = await loadNumberTransitions(env.HISTORY_DB, series, {
+    originNumber,
+    position,
+    coverageMode,
+    asOfDate,
+    ...range,
+  });
+  const page = paginateTransitions(
+    snapshot.results,
+    url.searchParams,
+    snapshot.dataRevision.fingerprint,
+  );
+  return { ...snapshot, ...page };
+}
+
+export async function handleStatisticsRequest(request, env, options = {}) {
   if (!env.HISTORY_DB) return statisticsJson({ error: 'Historical database is not configured.' }, 503);
   const url = new URL(request.url);
   if (request.method !== 'GET') return statisticsJson({ error: 'Method not allowed.' }, 405);
 
   try {
+    if (url.pathname === '/statistics/number-transitions') {
+      return statisticsJson(await numberTransitions(request, env, options));
+    }
     if (url.pathname === `${BASE_PATH}/intervals`) {
       return statisticsJson(await intervalRanking(request, env));
     }
@@ -161,9 +238,18 @@ function statisticsJson(payload, status = 200) {
 }
 
 export function isStatisticsPath(pathname) {
-  return pathname === `${BASE_PATH}/intervals` ||
+  return pathname === '/statistics/number-transitions' ||
+    pathname === `${BASE_PATH}/intervals` ||
     pathname === `${BASE_PATH}/numbers` ||
     /^\/statistics\/first-prize\/intervals\/\d+$/.test(pathname);
 }
 
-export const __test = { decodeOffset, encodeOffset, intervalDaysFromPath };
+export const __test = {
+  decodeOffset,
+  encodeOffset,
+  intervalDaysFromPath,
+  transitionNumber,
+  transitionPosition,
+  encodeTransitionCursor,
+  decodeTransitionCursor,
+};

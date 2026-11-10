@@ -9,6 +9,9 @@
     "deploy": "wrangler deploy",
     "staging:dev": "wrangler dev --local --config wrangler.staging.toml",
     "staging:dry-run": "wrangler deploy --dry-run --config wrangler.staging.toml",
+    "fixtures:staging:local": "node scripts/load-staging-fixtures-local.js",
+    "fixtures:staging:remote:dry-run": "node scripts/load-staging-fixtures-remote.js --dry-run",
+    "fixtures:staging:sql:generate": "node scripts/generate-staging-fixture-sql.js",
     "test": "node --test test/*.test.js",
     "db:migrate:local": "wrangler d1 migrations apply gana-mas-history-dev --local"
   },
